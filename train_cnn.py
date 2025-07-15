@@ -18,7 +18,7 @@ from tqdm import tqdm
 from wettbewerb import load_references, get_3montages, get_6montages
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-TARGET_FS = 400            # 统一采样率
+TARGET_FS = 256            # 统一采样率
 WIN_SEC   = 4.0            # 窗长（秒）
 STEP_SEC  = 2.0            # 步长（秒）
 WIN_SAMP  = int(TARGET_FS * WIN_SEC)
@@ -29,7 +29,7 @@ STEP_SAMP = int(TARGET_FS * STEP_SEC)
 # ------------------------------------------------------------------ #
 class EEGWindowSet(Dataset):
     """Create fixed-length windows and per-window binary labels."""
-    def __init__(self, root="C:/Users/lvxiangyu11/OneDrive - stud.tu-darmstadt.de/TUDarmstadt/Vierte/eeg/wki-sose25/shared_data/training"):
+    def __init__(self, root="C:/Users/lvxiangyu11/workspace/wki-sose25/shared_data/training"):
         ids, chs, data, fs, refs, labels = load_references(root)
         self.X, self.y = [], []
 
