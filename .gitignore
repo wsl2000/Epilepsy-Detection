@@ -137,6 +137,7 @@ PREDICTIONS.csv
 
 # VS Code Data
 .vscode/
+<<<<<<< HEAD
 
 # Additional ML/DL ignores
 *.pt
@@ -180,3 +181,5 @@ Thumbs.db
 *.sublime-*
 .spyderproject
 
+=======
+>>>>>>> 9d1badd97a85665972aa40d92c31e42d15897cd2

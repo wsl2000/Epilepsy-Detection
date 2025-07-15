@@ -15,10 +15,17 @@ from torch.utils.data import Dataset, DataLoader
 from scipy import signal
 from tqdm import tqdm
 
+<<<<<<< HEAD
 from wettbewerb import load_references, get_3montages, get_6montages
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 TARGET_FS = 400            # 统一采样率
+=======
+from wettbewerb import load_references, get_3montages
+
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+TARGET_FS = 256            # 统一采样率
+>>>>>>> 9d1badd97a85665972aa40d92c31e42d15897cd2
 WIN_SEC   = 4.0            # 窗长（秒）
 STEP_SEC  = 2.0            # 步长（秒）
 WIN_SAMP  = int(TARGET_FS * WIN_SEC)
@@ -29,7 +36,11 @@ STEP_SAMP = int(TARGET_FS * STEP_SEC)
 # ------------------------------------------------------------------ #
 class EEGWindowSet(Dataset):
     """Create fixed-length windows and per-window binary labels."""
+<<<<<<< HEAD
     def __init__(self, root="C:/Users/lvxiangyu11/OneDrive - stud.tu-darmstadt.de/TUDarmstadt/Vierte/eeg/wki-sose25/shared_data/training"):
+=======
+    def __init__(self, root="/home/ruicong/wki-sose25/mini_mat_wki"):
+>>>>>>> 9d1badd97a85665972aa40d92c31e42d15897cd2
         ids, chs, data, fs, refs, labels = load_references(root)
         self.X, self.y = [], []
 
@@ -108,7 +119,11 @@ def train():
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
 
+<<<<<<< HEAD
     EPOCHS, best_f1 = 100, 0.0
+=======
+    EPOCHS, best_f1 = 50, 0.0
+>>>>>>> 9d1badd97a85665972aa40d92c31e42d15897cd2
     for ep in range(1, EPOCHS + 1):
         model.train()
         running_loss, tp, fp, fn = 0.0, 0, 0, 0
