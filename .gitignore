@@ -137,3 +137,46 @@ PREDICTIONS.csv
 
 # VS Code Data
 .vscode/
+
+# Additional ML/DL ignores
+*.pt
+*.pth
+*.ckpt
+*.pkl
+*.pickle
+*.h5
+*.hdf5
+*.mat
+*.npy
+*.npz
+
+# Large data files
+shared_data/
+data/
+datasets/
+
+# Model outputs
+models/
+checkpoints/
+logs/
+runs/
+wandb/
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+*.temp
+
+# OS specific
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE specific
+.idea/
+*.sublime-*
+.spyderproject
+
