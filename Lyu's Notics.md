@@ -1,7 +1,7 @@
 # base
 这个数据集少额外**中线Fpz**和**枕中线Oz**的数据。
 
-# code部分
+# wike25 code部分
 
 ## [train.py]
 调用了load_references，这个函数默认只读取从idx开始的100个记录。
@@ -12,14 +12,14 @@
 
 
 # CBraMod中
-## [preprocessing_wike25]和[preprocessing/CHB-MIT/process1.py & process2.py]
+## [./preprocessing/preprocessing_wike25] 和 [./preprocessing/CHB-MIT/process1.py & process2.py]
 1. CHB-MIT读取出来就是双极导联，而wike25给的是单极导联，是否需要做差值？
 2. 我对每个电机做了归一化处理和缩放，来保证和CHB-MIT可视化效果一样的波纹。
 
-## [datasets/chb_dataset.py]
+## [./datasets/chb_dataset.py]
 使用CHB-MIT数据，一共16个双电极数据，而wike25提供19条单通道，reshape需要修改为19
 
-## [models/model_for_chb.py]
+## [./models/model_for_chb.py]
 这里也需要将16改为19
 
 
