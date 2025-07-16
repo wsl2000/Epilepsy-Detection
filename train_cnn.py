@@ -18,7 +18,7 @@ from tqdm import tqdm
 from wettbewerb import load_references, get_3montages, get_6montages
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-TARGET_FS = 256            # 统一采样率
+TARGET_FS = 400            # 统一采样率
 WIN_SEC   = 4.0            # 窗长（秒）
 STEP_SEC  = 2.0            # 步长（秒）
 WIN_SAMP  = int(TARGET_FS * WIN_SEC)
@@ -36,21 +36,21 @@ class EEGWindowSet(Dataset):
         for i in tqdm(range(len(ids)), desc="Building dataset"):
             # 1. montage to 3 differential channels
             _, mdata, _ = get_3montages(chs[i], data[i])
-            # 2. resample
+            # 2. resample 将信号采样率统一为TARGET_FS，保证不同样本采样率一致。
             mdata = signal.resample_poly(mdata, TARGET_FS, int(fs[i]), axis=1)
-            # 3. z-score per channel
+            # 3. z-score per channel 对每个通道做零均值单位方差归一化，防止数值差异影响模型训练。
             mdata = (mdata - mdata.mean(1, keepdims=True)) / (mdata.std(1, keepdims=True) + 1e-7)
 
             seiz_present, onset, offset = labels[i]
 
-            # 4. sliding windows
+            # 4. sliding windows 将原始数据分割成多个窗口片段，并为每个片段分配标签。
             n_seg = max(0, (mdata.shape[1] - WIN_SAMP) // STEP_SAMP + 1)
-            for k in range(n_seg):
-                s = k * STEP_SAMP
-                e = s + WIN_SAMP
-                self.X.append(mdata[:, s:e])
+            for k in range(n_seg):  # 遍历每个窗口
+                s = k * STEP_SAMP  # 当前窗口开始的采样点 s: 0
+                e = s + WIN_SAMP   # 当前窗口结束的采样点 s: 1024
+                self.X.append(mdata[:, s:e]) # 每个窗口存储的数据shape：(3, 1024)
 
-                if seiz_present:
+                if seiz_present:  # 窗口标签分配
                     t_start = s / TARGET_FS
                     t_end   = e / TARGET_FS
                     label = int((t_start <= offset) and (t_end >= onset))
@@ -116,7 +116,7 @@ def train():
         for xb, yb in dl:
             xb, yb = xb.to(DEVICE), yb.to(DEVICE)
             optimizer.zero_grad()
-            logits = model(xb)
+            logits = model(xb)  # batchsize:channel_number:windows_size
             loss = criterion(logits, yb)
             loss.backward(); optimizer.step()
 
