@@ -156,7 +156,6 @@ shared_data/
 data/
 
 # Model outputs
-models/
 checkpoints/
 logs/
 runs/
