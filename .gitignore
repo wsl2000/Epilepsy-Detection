@@ -154,7 +154,6 @@ PREDICTIONS.csv
 # Large data files
 shared_data/
 data/
-datasets/
 
 # Model outputs
 models/
