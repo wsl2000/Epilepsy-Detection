@@ -18,7 +18,7 @@ TARGET_CHANNELS = [
 ]
 
 input_folder = r"D:\datasets\eeg\dataset_dir_original\shared_data\training"
-output_folder = r"D:\datasets\eeg\dataset_processed\shared_data"
+output_folder = r"D:\datasets\eeg\dataset_processed\shared_data2"
 
 for sub in ["train", "val", "test"]:
     os.makedirs(os.path.join(output_folder, sub), exist_ok=True)
@@ -126,6 +126,10 @@ def process_record_wrapper(args):
     fs = eeg_data.get('fs')
     process_one_record(rec_id, label, ch_names, data, fs, subfolder)
 
+
+
+PROCESS_RATIO = 0.5  # 这里设置为40%，你可以根据需要修改
+
 if __name__ == "__main__":
     random.seed(42)
     refs = load_all_references(input_folder)
@@ -136,6 +140,15 @@ if __name__ == "__main__":
     train_refs = refs[:n_train]
     val_refs = refs[n_train:n_train+n_val]
     test_refs = refs[n_train+n_val:]
+
+    # 计算要处理的数量
+    def get_partial(refs):
+        n = int(len(refs) * PROCESS_RATIO)
+        return refs[:n]
+
+    train_refs = get_partial(train_refs)
+    val_refs = get_partial(val_refs)
+    test_refs = get_partial(test_refs)
 
     all_args = []
     for rec_id, label in train_refs:
