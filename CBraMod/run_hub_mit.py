@@ -45,11 +45,20 @@ def smart_load(path, device):
             return obj[key]
     raise RuntimeError(f'Un-recognised checkpoint format: {list(obj.keys())}')
 
+def remove_prefix_from_state_dict(state_dict, prefix):
+    new_state_dict = {}
+    for k, v in state_dict.items():
+        if k.startswith(prefix):
+            new_state_dict[k[len(prefix):]] = v
+        else:
+            new_state_dict[k] = v
+    return new_state_dict
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--datasets_dir', default='D:\\datasets\\eeg\\dataset_processed\\CHB-MIT_seg')
-    # parser.add_argument('--datasets_dir', default='D:\\datasets\\eeg\\dataset_processed\\shared_data')
-    parser.add_argument('--ckpt', default='./pretrained_weights/pretrained_weights.pth')
+    # parser.add_argument('--datasets_dir', default='D:\\datasets\\eeg\\dataset_processed\\CHB-MIT_seg')
+    parser.add_argument('--datasets_dir', default='D:\\datasets\\eeg\\dataset_processed\\shared_data')
+    parser.add_argument('--ckpt', default='model_weights/wike25/epoch5_acc_0.79077_pr_0.74238_roc_0.87214.pth')
     parser.add_argument('--device', default='cuda:0')
     parser.add_argument('--batch_size',   type=int, default=32,
                     help='batch size for test loader')
@@ -57,7 +66,7 @@ def main():
                         help='dataloader worker threads')
     parser.add_argument('--use_pretrained_weights', type=bool, default=True)
     parser.add_argument('--foundation_dir',
-                        default='pretrained_weights/pretrained_weights.pth')
+                        default='model_weights/wike25/epoch5_acc_0.79077_pr_0.74238_roc_0.87214.pth')
     parser.add_argument('--classifier',
                         default='all_patch_reps',
                         choices=['all_patch_reps',
@@ -74,7 +83,11 @@ def main():
 
     model = Model(args).to(device)
     model.load_state_dict(smart_load(args.ckpt, device), strict=False)
-
+    state_dict = smart_load(args.ckpt, device)
+    # 自动去掉 backbone. 前缀
+    if any(k.startswith('backbone.') for k in state_dict.keys()):
+        state_dict = remove_prefix_from_state_dict(state_dict, 'backbone.')
+    model.load_state_dict(state_dict, strict=False)
     # 只保留baseline推理
     base_metrics = metric_binary(model, test_loader, device, disable_grad=True)
 
