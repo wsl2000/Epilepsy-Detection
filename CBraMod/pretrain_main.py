@@ -42,7 +42,7 @@ def main():
     parser.add_argument('--need_mask', type=bool, default=True, help='need_mask')
     parser.add_argument('--mask_ratio', type=float, default=0.5, help='mask_ratio')
 
-    parser.add_argument('--dataset_dir', type=str, default='C:\\Users\\lvxiangyu11\\workspace\\CBraMod\\dataset_dir\\SHU',
+    parser.add_argument('--dataset_dir', type=str, default='D:\\datasets\\eeg\\dataset_processed\\shared_data\\train',
                         help='dataset_dir')
     parser.add_argument('--model_dir',   type=str,   default='model_dir', help='model_dir')
     params = parser.parse_args()
