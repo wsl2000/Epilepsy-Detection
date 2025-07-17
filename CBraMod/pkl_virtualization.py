@@ -22,14 +22,23 @@ TARGET_CHANNELS = [
 ]
 pkl_dir = r'D:\\datasets\\eeg\\dataset_processed\\shared_data\val'  # 改成你的路径
 
-
 pkl_files = sorted(glob.glob(os.path.join(pkl_dir, '*.pkl')))
 if not pkl_files:
     print("没有找到pkl文件！")
     exit(0)
 
-idx = 0
 fig, ax = plt.subplots(figsize=(12, 10))
+
+def find_next_label1(start_idx, direction=1):
+    n = len(pkl_files)
+    i = start_idx
+    for _ in range(n):
+        with open(pkl_files[i], 'rb') as f:
+            data = pickle.load(f)
+        if data['y'] == 1:
+            return i
+        i = (i + direction) % n
+    return None  # 没有label=1的
 
 def plot_idx(i):
     ax.clear()
@@ -46,14 +55,24 @@ def plot_idx(i):
     plt.tight_layout()
     fig.canvas.draw()
 
+# 初始化idx为第一个label=1的
+idx = find_next_label1(0, 1)
+if idx is None:
+    print("没有找到label=1的pkl文件！")
+    exit(0)
+
 def on_key(event):
     global idx
     if event.key == 'right':
-        idx = (idx + 1) % len(pkl_files)
-        plot_idx(idx)
+        next_idx = find_next_label1((idx + 1) % len(pkl_files), 1)
+        if next_idx is not None:
+            idx = next_idx
+            plot_idx(idx)
     elif event.key == 'left':
-        idx = (idx - 1) % len(pkl_files)
-        plot_idx(idx)
+        prev_idx = find_next_label1((idx - 1) % len(pkl_files), -1)
+        if prev_idx is not None:
+            idx = prev_idx
+            plot_idx(idx)
 
 plot_idx(idx)
 fig.canvas.mpl_connect('key_press_event', on_key)

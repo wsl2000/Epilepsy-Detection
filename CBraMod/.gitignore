@@ -1,4 +1,4 @@
 .idea
-.vscode
-__pycache__
-dataset_processed
+.dataset_processed
+.pretrained_weights
+.model_weights

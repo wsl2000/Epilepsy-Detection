@@ -21,7 +21,7 @@ class Trainer(object):
         self.model = model.cuda()
         if self.params.downstream_dataset in ['FACED', 'SEED-V', 'PhysioNet-MI', 'ISRUC', 'BCIC2020-3', 'TUEV', 'BCIC-IV-2a']:
             self.criterion = CrossEntropyLoss(label_smoothing=self.params.label_smoothing).cuda()
-        elif self.params.downstream_dataset in ['SHU-MI', 'CHB-MIT', 'Mumtaz2016', 'MentalArithmetic', 'TUAB', 'wike25']:
+        elif self.params.downstream_dataset in ['SHU-MI', 'CHB-MIT', 'Mumtaz2016', 'MentalArithmetic', 'TUAB', "wike25"]:
             self.criterion = BCEWithLogitsLoss().cuda()
         elif self.params.downstream_dataset == 'SEED-VIG':
             self.criterion = MSELoss().cuda()
@@ -182,6 +182,14 @@ class Trainer(object):
                     )
                 )
                 print(cm)
+                # 每个epoch都保存一次模型
+                if not os.path.isdir(self.params.model_dir):
+                    os.makedirs(self.params.model_dir)
+                model_path = self.params.model_dir + "/epoch{}_acc_{:.5f}_pr_{:.5f}_roc_{:.5f}.pth".format(
+                    epoch + 1, acc, pr_auc, roc_auc)
+                torch.save(self.model.state_dict(), model_path)
+                print("model save in " + model_path)
+
                 if roc_auc > roc_auc_best:
                     print("roc_auc increasing....saving weights !! ")
                     print("Val Evaluation: acc: {:.5f}, pr_auc: {:.5f}, roc_auc: {:.5f}".format(

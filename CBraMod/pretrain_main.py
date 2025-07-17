@@ -22,7 +22,7 @@ def main():
     parser.add_argument('--seed', type=int, default=42, help='random seed (default: 0)')
     parser.add_argument('--cuda', type=int, default=3, help='cuda number (default: 1)')
     parser.add_argument('--parallel', type=bool, default=False, help='parallel')
-    parser.add_argument('--epochs', type=int, default=40, help='number of epochs (default: 5)')
+    parser.add_argument('--epochs', type=int, default=50, help='number of epochs (default: 5)')
     parser.add_argument('--batch_size', type=int, default=128, help='batch size for training (default: 32)')
     parser.add_argument('--lr', type=float, default=5e-4, help='learning rate (default: 1e-3)')
     parser.add_argument('--weight_decay', type=float, default=5e-2, help='weight_decay')
@@ -42,7 +42,7 @@ def main():
     parser.add_argument('--need_mask', type=bool, default=True, help='need_mask')
     parser.add_argument('--mask_ratio', type=float, default=0.5, help='mask_ratio')
 
-    parser.add_argument('--dataset_dir', type=str, default='D:\\datasets\\eeg\\dataset_processed\\shared_data\\train',
+    parser.add_argument('--dataset_dir', type=str, default='dataset_dir',
                         help='dataset_dir')
     parser.add_argument('--model_dir',   type=str,   default='model_dir', help='model_dir')
     params = parser.parse_args()

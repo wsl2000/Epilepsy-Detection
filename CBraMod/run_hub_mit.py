@@ -47,8 +47,8 @@ def smart_load(path, device):
 
 def main():
     parser = argparse.ArgumentParser()
-    # parser.add_argument('--datasets_dir', default='D:\\datasets\\eeg\\dataset_processed\\CHB-MIT_seg')
-    parser.add_argument('--datasets_dir', default='D:\\datasets\\eeg\\dataset_processed\\shared_data')
+    parser.add_argument('--datasets_dir', default='D:\\datasets\\eeg\\dataset_processed\\CHB-MIT_seg')
+    # parser.add_argument('--datasets_dir', default='D:\\datasets\\eeg\\dataset_processed\\shared_data')
     parser.add_argument('--ckpt', default='./pretrained_weights/pretrained_weights.pth')
     parser.add_argument('--device', default='cuda:0')
     parser.add_argument('--batch_size',   type=int, default=32,
