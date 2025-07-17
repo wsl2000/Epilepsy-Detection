@@ -18,7 +18,7 @@ TARGET_CHANNELS = [
 ]
 
 input_folder = r"D:\datasets\eeg\dataset_dir_original\shared_data\training"
-output_folder = r"D:\datasets\eeg\dataset_processed\shared_data2"
+output_folder = r"D:\datasets\eeg\dataset_processed\shared_data_10_percent"
 
 for sub in ["train", "val", "test"]:
     os.makedirs(os.path.join(output_folder, sub), exist_ok=True)
@@ -128,7 +128,7 @@ def process_record_wrapper(args):
 
 
 
-PROCESS_RATIO = 0.5  # 这里设置为40%，你可以根据需要修改
+PROCESS_RATIO = 0.1  # 这里设置为40%，你可以根据需要修改
 
 if __name__ == "__main__":
     random.seed(42)

@@ -4,7 +4,7 @@ import os
 import lmdb
 import pickle
 
-root_dir = 'C:\\Users\\lvxiangyu11\\workspace\\CBraMod\\dataset_dir_original\\SHU\\mat_files\\mat'
+root_dir = '/data/datasets/BigDownstream/MODMA/files'
 files = [file for file in os.listdir(root_dir)]
 files = sorted(files)
 # print(files)
@@ -20,7 +20,7 @@ dataset = {
     'val': list(),
     'test': list(),
 }
-db = lmdb.open('C:\\Users\\lvxiangyu11\\workspace\\CBraMod\\dataset_processed\\SHU', map_size=3110612736)
+db = lmdb.open('/data/datasets/shu_datasets/processed', map_size=110612736)
 for files_key in files_dict.keys():
     for file in files_dict[files_key]:
         data = scipy.io.loadmat(os.path.join(root_dir, file))

@@ -24,7 +24,6 @@ class Evaluator:
 
             truths += y.cpu().squeeze().numpy().tolist()
             preds += pred_y.cpu().squeeze().numpy().tolist()
-            preds.append(pred_y.cpu().squeeze().numpy().tolist())
 
         truths = np.array(truths)
         preds = np.array(preds)

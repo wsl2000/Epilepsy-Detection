@@ -10,25 +10,16 @@ import pickle
 import _pickle as cPickle
 import multiprocessing as mp
 
-# 对数据进行pickle序列化并压缩保存
+
+# Pickle a file and then compress it into a file with extension
 def compressed_pickle(title, data):
-    """
-    序列化并压缩数据到文件
-    :param title: 保存的文件名
-    :param data: 要保存的数据
-    """
     # with bz2.BZ2File(title + '.pbz2', 'w') as f:
     #     cPickle.dump(data, f)
     pickle.dump(data, open(title, "wb"))
 
-# 处理metadata摘要文件，提取发作次数、发作起止点等信息
+
+# Process metadata
 def process_metadata(summary, filename):
-    """
-    从summary文件中提取指定EDF文件的癫痫发作相关元数据
-    :param summary: summary文件路径
-    :param filename: 目标EDF文件名
-    :return: 包含发作信息的字典
-    """
     f = open(summary, "r")
 
     metadata = {}
@@ -45,21 +36,21 @@ def process_metadata(summary, filename):
                     processed = True
                 j = j + 1
 
-            # 如果有癫痫发作，提取每次发作的起止采样点
+            # If file has seizures get start and end time
             if seizures > 0:
                 j = i + 1
                 for s in range(seizures):
-                    # 保存每次发作的起止点
+                    # Save start and end time of each seizure
                     processed = False
                     while not processed:
                         l = lines[j].split()
                         # print(l)
 
                         if l[0] == "Seizure" and "Start" in l:
-                            start = int(l[-2]) * 256 - 1  # 起始点
+                            start = int(l[-2]) * 256 - 1  # Index of start time
                             end = (
                                 int(lines[j + 1].split()[-2]) * 256 - 1
-                            )  # 结束点
+                            )  # Index of end time
                             processed = True
                         j = j + 1
                     times.append((start, end))
@@ -69,15 +60,9 @@ def process_metadata(summary, filename):
 
     return metadata
 
-# 读取EDF文件，仅保留指定通道
+
+# Keep some channels from a .edf and ignore the others
 def drop_channels(edf_source, edf_target=None, to_keep=None, to_drop=None):
-    """
-    只保留需要的通道信号
-    :param edf_source: EDF源文件路径
-    :param edf_target: 目标文件路径（未用）
-    :param to_keep: 要保留的通道索引列表
-    :return: {channel_name: signal_array}
-    """
     signals, signal_headers, header = hl.read_edf(
         edf_source, ch_nrs=to_keep, digital=False
     )
@@ -89,15 +74,11 @@ def drop_channels(edf_source, edf_target=None, to_keep=None, to_drop=None):
         clean_file[channel] = signal
     return clean_file
 
-# 保留目标通道，缺失通道补零，然后保存
+
+# At first, it permuted the channels of a edf signal
+# Now, only keeps valid channels and compress+save into pkl
 def move_channels(clean_dict, channels, target):
-    """
-    处理通道，只保留目标通道，不存在的补零，最终保存
-    :param clean_dict: {channel: signal}
-    :param channels: 目标通道字典
-    :param target: 输出文件路径
-    """
-    # 标记需要删除的无关通道
+    # Keep only valid channels
     keys_to_delete = []
     for key in clean_dict:
         if key != "metadata" and key not in channels.keys():
@@ -105,30 +86,22 @@ def move_channels(clean_dict, channels, target):
     for key in keys_to_delete:
         del clean_dict[key]
 
-    # 获取信号长度
+    # Get size of the numpy array
     size = 0
     for item in clean_dict.keys():
         if item != "metadata":
             size = len(clean_dict.get(item))
             break
 
-    # 缺失通道补零
     for k in channels.keys():
         if k not in clean_dict.keys():
             clean_dict[k] = np.zeros(size, dtype=float)
 
     compressed_pickle(target + ".pkl", clean_dict)
 
-# 批量处理指定病人的EDF文件
+
+# Process edf files of a pacient from start number to end number
 def process_files(pacient, valid_channels, channels, start, end):
-    """
-    按编号批量处理某位病人的EDF文件
-    :param pacient: 病人编号
-    :param valid_channels: 参考通道列表
-    :param channels: 通道字典
-    :param start: 起始文件编号
-    :param end: 结束文件编号
-    """
     for num in range(start, end + 1):
         to_keep = []
 
@@ -137,7 +110,7 @@ def process_files(pacient, valid_channels, channels, start, end):
             path=signals_path, p=pacient, n=num
         )
 
-        # 检查通道，确定实际可用通道索引
+        # Check with (cleaned) reference file  if we have to remove more channels
         try:
             signals, signal_headers, header = hl.read_edf(filename, digital=False)
             n = 0
@@ -177,7 +150,6 @@ def process_files(pacient, valid_channels, channels, start, end):
                 print("****************************************")
                 continue
 
-        # 处理元数据
         metadata = process_metadata(
             "{path}/chb{p}/chb{p}-summary.txt".format(path=signals_path, p=pacient),
             "chb{p}_{n}.edf".format(p=pacient, n=num),
@@ -189,29 +161,21 @@ def process_files(pacient, valid_channels, channels, start, end):
         )
         move_channels(clean_dict, channels, target)
 
-# 处理某个病人某一参考文件，并批量处理剩余文件
+
 def start_process(pacient, num, start, end, sum_ind):
-    """
-    处理单个病人：先处理参考文件，提取通道，再批量处理其余文件
-    :param pacient: 病人编号
-    :param num: 参考文件编号
-    :param start: 需处理的起始文件编号
-    :param end: 需处理的结束文件编号
-    :param sum_ind: summary索引（用于通道变更情况）
-    """
-    # 打开summary文件，初始化通道相关变量
+    # Summary file
     f = open(
         "{path}/chb{p}/chb{p}-summary.txt".format(path=signals_path, p=pacient), "r"
     )
 
-    channels = defaultdict(list)  # 通道名到索引的映射
-    valid_channels = []  # 有效通道名列表
-    to_keep = []  # 需保留的通道索引
+    channels = defaultdict(list)  # Dict of channels and indices
+    valid_channels = []  # Valid channels
+    to_keep = []  # Indices of channels we want to keep
 
-    channel_index = 1  # 通道索引计数器
-    summary_index = 0  # summary中通道变更的块索引
+    channel_index = 1  # Index for each channel
+    summary_index = 0  # Index to choose which channel reference take from summary file
 
-    # 遍历summary，提取通道信息
+    # Process summary file
     for line in f:
         line = line.split()
         if len(line) == 0:
@@ -224,33 +188,34 @@ def start_process(pacient, num, start, end, sum_ind):
             line[0] == "Channel"
             and summary_index == sum_ind
             and (line[2] != "-" and line[2] != ".")
-        ):  # "-"表示无效通道
+        ):  # '-' means a void channel
             if (
                 line[2] in channels.keys()
-            ):  # 通道名重复，后缀加-2
+            ):  # In case of repeated channel just add '-2' to the label
                 name = line[2] + "-2"
             else:
                 name = line[2]
 
-            # 添加通道到字典和列表
+            # Add channel to dict and update lists
             channels[name].append(str(channel_index))
             channel_index += 1
             valid_channels.append(name)
             to_keep.append(int(line[1][:-1]) - 1)
 
-    # 处理参考EDF文件
+    # for item in channels.items(): print(item)
+
+    # Clean reference file
     filename = "{path}/chb{p}/chb{p}_{n}.edf".format(
         path=signals_path, p=pacient, n=num
     )
     target = "{path}/chb{p}/chb{p}_{n}.edf".format(path=clean_path, p=pacient, n=num)
 
-    # 若输出目录不存在则新建
     if not os.path.exists("{path}/chb{p}".format(p=pacient, path=clean_path)):
         os.makedirs("{path}/chb{p}".format(p=pacient, path=clean_path))
 
     clean_dict = drop_channels(filename, edf_target=target, to_keep=to_keep)
 
-    # 处理元数据
+    # Process metadata : Number of seizures and start/end time
     metadata = process_metadata(
         "{path}/chb{p}/chb{p}-summary.txt".format(path=signals_path, p=pacient),
         "chb{p}_{n}.edf".format(p=pacient, n=num),
@@ -261,17 +226,28 @@ def start_process(pacient, num, start, end, sum_ind):
 
     compressed_pickle(target + ".pkl", clean_dict)
 
-    # 批量处理其它EDF文件
+    # Process the rest of the files to get same channels as reference file
     process_files(pacient, valid_channels, channels, start, end)
 
-# ======================== 全局参数 ========================
-signals_path = r"D:\\datasets\\eeg\\dataset_dir_original\\chb-mit-scalp-eeg-database-1.0.0"  # 原始数据主目录
-clean_path = r"D:\\datasets\\eeg\\dataset_processed\\CHB-MIT"  # 清洗后数据存放目录
+
+# PARAMETERS
+signals_path = r"/data/datasets/chb-mit-scalp-eeg-database-1.0.0"  # Path to the data main directory
+clean_path = r"/data/datasets/BigDownstream/chb-mit/processed"  # Path where to store clean data
 
 if not os.path.exists(clean_path):
     os.makedirs(clean_path)
 
-# 指定每位病人的处理参数
+# Clean pacients one by one manually with these parameters
+pacient = "04"
+num = "01"  # Reference file
+summary_index = 0  # Index of channels summary reference
+start = 28  # Number of first file to process
+end = 28  # Number of last file to process
+# Start the process
+# start_process(pacient, num, start, end, summary_index)
+
+
+# FULL DATA PROCESS
 parameters = [
     ("01", "01", 2, 46, 0),
     ("02", "01", 2, 35, 0),
@@ -295,12 +271,13 @@ parameters = [
     ("18", "02", 1, 36, 1),
     ("19", "02", 1, 30, 1),
 ]
+
 # parameters = [
 #     ("12", "")
 # ]
 
-# ======================== 主入口 ========================
-if __name__ == '__main__':
-    # 多进程并发处理全部病人
-    with mp.Pool(mp.cpu_count()) as pool:
-        res = pool.starmap(start_process, parameters)
+
+
+
+with mp.Pool(mp.cpu_count()) as pool:
+    res = pool.starmap(start_process, parameters)
