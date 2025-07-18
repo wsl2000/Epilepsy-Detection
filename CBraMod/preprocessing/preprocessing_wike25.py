@@ -17,8 +17,8 @@ TARGET_CHANNELS = [
     'Fz', 'Cz', 'Pz'
 ]
 
-input_folder = r"D:\datasets\eeg\dataset_dir_original\shared_data\training"
-output_folder = r"D:\datasets\eeg\dataset_processed\shared_data_10_percent"
+input_folder = r"D:\datasets\eeg\dataset_dir_original\shared_data\training_single"
+output_folder = r"D:\datasets\eeg\dataset_processed\training_mini"
 
 for sub in ["train", "val", "test"]:
     os.makedirs(os.path.join(output_folder, sub), exist_ok=True)
@@ -128,7 +128,7 @@ def process_record_wrapper(args):
 
 
 
-PROCESS_RATIO = 0.1  # 这里设置为40%，你可以根据需要修改
+PROCESS_RATIO = 1  # 这里设置为40%，你可以根据需要修改
 
 if __name__ == "__main__":
     random.seed(42)
@@ -158,7 +158,7 @@ if __name__ == "__main__":
     for rec_id, label in test_refs:
         all_args.append((rec_id, label, "test"))
 
-    with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+    with ThreadPoolExecutor(max_workers=1) as executor:
         tasks = [executor.submit(process_record_wrapper, args) for args in all_args]
         for _ in tqdm(as_completed(tasks), total=len(tasks)):
             pass
