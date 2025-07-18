@@ -17,8 +17,7 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), 'CBraMod'))
 
 try:
-    from models.model_for_wike25 import Model
-    from models.ssl_cnn import SSLTransformer
+    from CBraMod.models.model_for_wike25 import Model
 except ImportError:
     print("警告: 无法导入 CBraMod 模型，请确保路径正确")
 
@@ -170,6 +169,7 @@ def predict_labels(channels: List[str], data: np.ndarray,
         
         # 加载训练好的权重
         state_dict = torch.load(params_dict["model_weight_path"], map_location=DEVICE)
+        print(f"加载模型权重: {params_dict['model_weight_path']}")
         model.load_state_dict(state_dict)
     except Exception as e:
         print(f"模型加载失败: {e}")
