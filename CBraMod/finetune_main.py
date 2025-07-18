@@ -45,7 +45,7 @@ def main():
     parser.add_argument('--num_of_classes', type=int, default=9, help='number of classes')
     # parser.add_argument('--model_dir', type=str, default='./model_weights/SHU-MI', help='model_dir')
     # parser.add_argument('--model_dir', type=str, default='./model_weights/CHB-MIT', help='model_dir')
-    parser.add_argument('--model_dir', type=str, default='./model_weights/wike25', help='model_dir')
+    parser.add_argument('--model_dir', type=str, default='model_weights/wike25_2', help='model_dir')
 
     """############ Downstream dataset settings ############"""
 
