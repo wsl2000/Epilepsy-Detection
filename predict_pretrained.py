@@ -7,14 +7,14 @@
 @author: Maurice Rohr
 """
 
-from predict import predict_labels
+from predict_CBraMod import predict_labels
 from wettbewerb import EEGDataset, save_predictions
 import argparse
 import time
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='使用给定模型进行预测')
-    parser.add_argument('--test_dir', action='store', type=str, default='../test/', help='测试数据文件夹路径')
+    parser.add_argument('--test_dir', action='store', type=str, default=r'D:\datasets\eeg\dataset_dir_original\shared_data\training_mini', help='测试数据文件夹路径')
     parser.add_argument('--model_name', action='store', type=str, default='model.json', help='模型文件名')
     parser.add_argument('--allow_fail', action='store_true', default=False, help='是否允许失败')
     args = parser.parse_args()
@@ -33,11 +33,12 @@ if __name__ == '__main__':
             _prediction = predict_labels(channels, data, fs, ref_system, model_name=args.model_name)
             _prediction["id"] = id
             predictions.append(_prediction)
-        except:
+        except Exception as e:
+            print(f"预测失败: {e}, ID: {id}")
             if args.allow_fail:
                 raise
         
-    pred_time = time.time() - start_time
+    pred_time = time.time() - start_time        
     
     save_predictions(predictions) # 将预测结果保存到CSV文件
     print("运行时间", pred_time, "秒")

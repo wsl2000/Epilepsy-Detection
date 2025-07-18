@@ -219,7 +219,7 @@ def compute_interval_scores(gt_present: np.ndarray, pred_present: np.ndarray, gt
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Predict given Model')
-    parser.add_argument('--test_dir', action='store', type=str, default='../test/')
+    parser.add_argument('--test_dir', action='store', type=str, default=r'D:\datasets\eeg\dataset_dir_original\shared_data\training_mini')
     args = parser.parse_args()
     metrics = score(args.test_dir)
     performance_metric = metrics["performance_metric_WS23"]
