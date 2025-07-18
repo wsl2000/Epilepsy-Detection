@@ -25,7 +25,6 @@ def test_model():
     parser.add_argument('--datasets_dir', type=str,
                         default=r'D:\datasets\eeg\dataset_processed\shared_data',
                         help='datasets directory')
-    parser.add_argument('--num_of_classes', type=int, default=9, help='number of classes')
     parser.add_argument('--num_workers', type=int, default=16, help='num_workers')
     parser.add_argument('--label_smoothing', type=float, default=0.1, help='label_smoothing')
     parser.add_argument('--use_pretrained_weights', type=bool, default=True, help='use_pretrained_weights')
@@ -50,7 +49,7 @@ def test_model():
     model = model.cuda()
 
     # 加载预训练权重
-    model_path = "model_weights/wike25/epoch5_acc_0.79077_pr_0.74238_roc_0.87214.pth"
+    model_path = "model_weights/wike25/epoch32_acc_0.71677_pr_0.56570_roc_0.74756.pth"
     print(f"Loading model weights from {model_path}")
 
     try:
