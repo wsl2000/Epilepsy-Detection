@@ -17,8 +17,7 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), 'CBraMod'))
 
 try:
-    from models.model_for_wike25 import Model
-    from models.ssl_cnn import SSLTransformer
+    from CBraMod.models.model_for_wike25 import Model
 except ImportError:
     print("警告: 无法导入 CBraMod 模型，请确保路径正确")
 

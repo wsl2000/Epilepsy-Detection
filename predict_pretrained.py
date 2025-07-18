@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='使用给定模型进行预测')
-    parser.add_argument('--test_dir', action='store', type=str, default=r'D:\datasets\eeg\dataset_dir_original\shared_data\training_mini', help='测试数据文件夹路径')
+    parser.add_argument('--test_dir', action='store', type=str, default=r'D:\datasets\eeg\dataset_dir_original\shared_data\training', help='测试数据文件夹路径')
     parser.add_argument('--model_name', action='store', type=str, default='model.json', help='模型文件名')
     parser.add_argument('--allow_fail', action='store_true', default=False, help='是否允许失败')
     args = parser.parse_args()
