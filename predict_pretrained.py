@@ -7,10 +7,11 @@
 @author: Maurice Rohr
 """
 
-from predict_CBraMod import predict_labels
+from predict import predict_labels
 from wettbewerb import EEGDataset, save_predictions
 import argparse
 import time
+from tqdm import tqdm
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='使用给定模型进行预测')
@@ -27,7 +28,7 @@ if __name__ == '__main__':
     start_time = time.time()
     
     # 对数据集中的每个元素（记录）调用预测方法
-    for item in dataset:
+    for item in tqdm(dataset, desc="预测进度", unit="条"):
         id, channels, data, fs, ref_system, eeg_label = item
         try:
             _prediction = predict_labels(channels, data, fs, ref_system, model_name=args.model_name)
@@ -37,7 +38,6 @@ if __name__ == '__main__':
             print(f"预测失败: {e}, ID: {id}")
             if args.allow_fail:
                 raise
-        
     pred_time = time.time() - start_time        
     
     save_predictions(predictions) # 将预测结果保存到CSV文件
