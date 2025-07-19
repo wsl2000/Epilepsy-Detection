@@ -141,24 +141,9 @@ def predict_labels(channels: List[str], data: np.ndarray,
     """
     
     # 1. 读取元数据 & 模型参数
-    try:
-        with open(model_name, "r") as f:
-            params_dict = json.load(f)
-    except FileNotFoundError:
-        # 使用默认参数
-        params_dict = {
-            "model_weight_path": "CBraMod/model_weights/wike25/epoch5_acc_0.79077_pr_0.74238_roc_0.87214.pth",
-            "prob_th": 0.5,
-            "min_len": 3,
-            "win_sec": 10,
-            "step_sec": 5,
-            "fs": 250,
-            "num_of_classes": 2,
-            "dropout": 0.1,
-            "classifier": "all_patch_reps",
-            "use_pretrained_weights": True,
-            "foundation_dir": "CBraMod/pretrained_weights/pretrained_weights.pth"
-        }
+    with open(model_name, "r") as f:
+        params_dict = json.load(f)
+
     
     # 创建模拟参数对象
     params = MockParams(params_dict)
