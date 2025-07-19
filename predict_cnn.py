@@ -16,7 +16,7 @@ class CNN1D(nn.Module):
     def __init__(self):
         super().__init__()
         self.features = nn.Sequential(
-            nn.Conv1d(6, 32, 7, 2, 3), nn.BatchNorm1d(32), nn.ReLU(),
+            nn.Conv1d(3, 32, 7, 2, 3), nn.BatchNorm1d(32), nn.ReLU(),
             nn.Conv1d(32, 64, 5, 2, 2), nn.BatchNorm1d(64), nn.ReLU(),
             nn.Conv1d(64, 128, 5, 2, 2), nn.BatchNorm1d(128), nn.ReLU(),
             nn.Conv1d(128, 256, 3, 2, 1), nn.BatchNorm1d(256), nn.ReLU(),
@@ -47,7 +47,7 @@ def predict_labels(channels: List[str], data: np.ndarray,
     tgt_fs   = params["fs"]
 
     # 2. 预处理
-    _, mdata, _ = get_6montages(channels, data)
+    _, mdata, _ = get_3montages(channels, data)
     mdata = signal.resample_poly(mdata, tgt_fs, int(fs), axis=1)
     mdata = (mdata - mdata.mean(1, keepdims=True)) / (mdata.std(1, keepdims=True) + 1e-7)
 
