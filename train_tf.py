@@ -1173,7 +1173,7 @@ if __name__ == "__main__":
     # Training with competition-optimized parameters
     custom_params = {
         "epochs": 10,
-        "model_scale": "base",
+        "model_scale": "small",
         "batch_size": 128,
         "learning_rate": 3e-4,
         "weights_folder": "weights/tf",
