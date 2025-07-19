@@ -29,13 +29,13 @@ STEP_SAMP = int(TARGET_FS * STEP_SEC)
 # ------------------------------------------------------------------ #
 class EEGWindowSet(Dataset):
     """Create fixed-length windows and per-window binary labels."""
-    def __init__(self, root="C:/Users/lvxiangyu11/workspace/wki-sose25/shared_data/training"):
+    def __init__(self, root=r"D:\datasets\eeg\dataset_dir_original\shared_data\training"):
         ids, chs, data, fs, refs, labels = load_references(root)
         self.X, self.y = [], []
 
         for i in tqdm(range(len(ids)), desc="Building dataset"):
-            # 1. montage to 3 differential channels
-            _, mdata, _ = get_3montages(chs[i], data[i])
+            # 1. montage to 6 differential channels
+            _, mdata, _ = get_6montages(chs[i], data[i])
             # 2. resample 将信号采样率统一为TARGET_FS，保证不同样本采样率一致。
             mdata = signal.resample_poly(mdata, TARGET_FS, int(fs[i]), axis=1)
             # 3. z-score per channel 对每个通道做零均值单位方差归一化，防止数值差异影响模型训练。
@@ -48,7 +48,7 @@ class EEGWindowSet(Dataset):
             for k in range(n_seg):  # 遍历每个窗口
                 s = k * STEP_SAMP  # 当前窗口开始的采样点 s: 0
                 e = s + WIN_SAMP   # 当前窗口结束的采样点 s: 1024
-                self.X.append(mdata[:, s:e]) # 每个窗口存储的数据shape：(3, 1024)
+                self.X.append(mdata[:, s:e]) # 每个窗口存储的数据shape：(6, 1024)
 
                 if seiz_present:  # 窗口标签分配
                     t_start = s / TARGET_FS
@@ -71,7 +71,7 @@ class CNN1D(nn.Module):
     def __init__(self):
         super().__init__()
         self.features = nn.Sequential(
-            nn.Conv1d(3, 32, kernel_size=7, stride=2, padding=3),
+            nn.Conv1d(6, 32, kernel_size=7, stride=2, padding=3),
             nn.BatchNorm1d(32), nn.ReLU(),
 
             nn.Conv1d(32, 64, kernel_size=5, stride=2, padding=2),
