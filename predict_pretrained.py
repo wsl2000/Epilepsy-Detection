@@ -9,7 +9,7 @@ Skript testet das vortrainierte Modell
 """
 
 
-from predict_tf import predict_labels
+from predict_cnn import predict_labels
 from wettbewerb import EEGDataset, save_predictions
 import argparse
 import time
@@ -19,7 +19,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Predict given Model')
     parser.add_argument('--test_dir', action='store',type=str,default=r'D:\datasets\eeg\dataset_dir_original\shared_data\training_mini')
     # parser.add_argument('--model_name', action='store',type=str,default='model.json')
-    parser.add_argument('--model_name', action='store',type=str,default='transformer_model.json')
+    parser.add_argument('--model_name', action='store',type=str,default='model.json')
     parser.add_argument('--allow_fail',action='store_true',default=False)
     args = parser.parse_args()
     
