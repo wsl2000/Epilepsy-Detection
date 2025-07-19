@@ -12,14 +12,10 @@ import numpy as np
 from scipy import signal
 import os
 import sys
-
-# 添加 CBraMod 相关路径
+sys.path.append(os.path.join(os.path.dirname(__file__)))
 sys.path.append(os.path.join(os.path.dirname(__file__), 'CBraMod'))
+from CBraMod.models.model_for_wike25 import Model
 
-try:
-    from CBraMod.models.model_for_wike25 import Model
-except ImportError:
-    print("警告: 无法导入 CBraMod 模型，请确保路径正确")
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -139,64 +135,41 @@ def predict_labels(channels: List[str], data: np.ndarray,
     """
     CBraMod 预测接口函数
     """
-    
+
     # 1. 读取元数据 & 模型参数
-    try:
-        with open(model_name, "r") as f:
-            params_dict = json.load(f)
-    except FileNotFoundError:
-        # 使用默认参数
-        params_dict = {
-            "model_weight_path": "CBraMod/model_weights/wike25/epoch5_acc_0.79077_pr_0.74238_roc_0.87214.pth",
-            "prob_th": 0.5,
-            "min_len": 3,
-            "win_sec": 10,
-            "step_sec": 5,
-            "fs": 250,
-            "num_of_classes": 2,
-            "dropout": 0.1,
-            "classifier": "all_patch_reps",
-            "use_pretrained_weights": True,
-            "foundation_dir": "CBraMod/pretrained_weights/pretrained_weights.pth"
-        }
-    
+    with open(model_name, "r") as f:
+        params_dict = json.load(f)
+
+
     # 创建模拟参数对象
     params = MockParams(params_dict)
-    
+
     # 2. 加载 CBraMod 模型
-    try:
-        model = Model(params).to(DEVICE).eval()
-        
-        # 加载训练好的权重
-        state_dict = torch.load(params_dict["model_weight_path"], map_location=DEVICE)
-        print(f"加载模型权重: {params_dict['model_weight_path']}")
-        model.load_state_dict(state_dict)
-    except Exception as e:
-        print(f"模型加载失败: {e}")
-        return {"seizure_present": False,
-                "seizure_confidence": 0.,
-                "onset": -1,
-                "onset_confidence": 0.,
-                "offset": -1,
-                "offset_confidence": 0.}
-    
+
+    model = Model(params).to(DEVICE).eval()
+
+    # 加载训练好的权重
+    state_dict = torch.load(params_dict["model_weight_path"], map_location=DEVICE)
+    print(f"加载模型权重: {params_dict['model_weight_path']}")
+    model.load_state_dict(state_dict)
+
     # 获取预测参数
     prob_th = params_dict.get("prob_th", 0.5)
     min_len = params_dict.get("min_len", 3)
     win_sec = params_dict.get("win_sec", 10)
     step_sec = params_dict.get("step_sec", 5)
     tgt_fs = params_dict.get("fs", 250)
-    
+
     # 3. 预处理数据
     win_samp = int(win_sec * tgt_fs)  # 10秒 = 2500个采样点
     step_samp = int(step_sec * tgt_fs)  # 5秒 = 1250个采样点
-    
+
     # 重采样
     if fs != tgt_fs:
         data = signal.resample_poly(data, tgt_fs, int(fs), axis=1)
-    
+
     n_seg = max(0, (data.shape[1] - win_samp) // step_samp + 1)
-    
+
     if n_seg == 0:  # 录音太短
         return {"seizure_present": False,
                 "seizure_confidence": 0.,
@@ -204,36 +177,36 @@ def predict_labels(channels: List[str], data: np.ndarray,
                 "onset_confidence": 0.,
                 "offset": -1,
                 "offset_confidence": 0.}
-    
+
     # 4. 分段预测
     probs = []
     with torch.no_grad():
         for i in range(n_seg):
             start_idx = i * step_samp
             segment_data = data[:, start_idx:start_idx + win_samp]
-            
+
             # 预处理当前片段 - 转换为patch格式
             processed_patches = preprocess_eeg_data(channels, segment_data, tgt_fs, tgt_fs)
-            
+
             # 转换为模型期望的输入格式 [batch, channels, seq_len, patch_size]
             # processed_patches shape: [19, 10, 200]
             # 需要转换为: [1, 19, 10, 200]
             segment_tensor = torch.tensor(processed_patches, dtype=torch.float32).unsqueeze(0).to(DEVICE)
-            
+
             # 模型预测
             output = model(segment_tensor)
-            
+
             # 计算概率
             if hasattr(output, 'logits'):
                 logits = output.logits
             else:
                 logits = output
-                
+
             prob = torch.sigmoid(logits).cpu().item()  # BCEWithLogitsLoss对应sigmoid
             probs.append(prob)
-    
+
     probs = np.array(probs)
-    
+
     # 5-7. 后续处理保持不变
     # 平滑 + 阈值检测
     if len(probs) >= 3:
