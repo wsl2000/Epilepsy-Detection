@@ -248,7 +248,7 @@ def predict_labels(channels: List[str], data: np.ndarray,
         model_scale=model_scale
     ).to(DEVICE).eval()
     
-    state_dict = torch.load(params["model_weight_path"], map_location=DEVICE)
+    state_dict = torch.load(params["model_weight_path"], map_location=DEVICE, weights_only=False)
     if "model_state_dict" in state_dict:
         model.load_state_dict(state_dict["model_state_dict"])
     else:

@@ -1,5 +1,5 @@
 {
-  "model_weight_path": "epoch_003_f1_0.4249_comp_0.5102_sens_0.6347_ppv_0.3194.pt",
+  "model_weight_path": "epoch_006_f1_0.5281_comp_0.6203_sens_0.6715_ppv_0.4351.pt",
   "model_type": "EEGTransformer",
   "model_scale": "small",
   "prob_th": 0.5,
