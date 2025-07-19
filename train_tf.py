@@ -1173,11 +1173,11 @@ if __name__ == "__main__":
     # Training with competition-optimized parameters
     custom_params = {
         "epochs": 10,
-        "model_scale": "small",
+        "model_scale": "base",
         "batch_size": 128,
         "learning_rate": 3e-4,
         "weights_folder": "weights/tf",
-        "data_percentage": 0.1,
+        "data_percentage": 1,
         "patience": 5,
         # Competition-specific parameters
         "loss_type": "competition",  # Use competition-aware loss
@@ -1194,4 +1194,4 @@ if __name__ == "__main__":
     
     results = train(custom_params)
     print(f"\n🎉 Training completed! Best score: {results.get('best_competition_score', 'N/A')}")
-    print(f"📁 Epoch checkpoints available in: {results['epoch_checkpoints']['folder']}")
+    print(f"📁 Epoch checkpoints available in: {results['epoch_checkpoints']['folder']}")              
