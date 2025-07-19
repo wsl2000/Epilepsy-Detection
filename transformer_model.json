@@ -1,5 +1,5 @@
 {
-  "model_weight_path": "epoch_008_f1_0.5517_comp_0.6387_sens_0.6850_ppv_0.4618.pt",
+  "model_weight_path": "epoch_010_f1_0.5732_comp_0.6506_sens_0.6312_ppv_0.5249.pt",
   "model_type": "EEGTransformer",
   "model_scale": "small",
   "prob_th": 0.5,
@@ -20,7 +20,6 @@
   "val_samples": 13302,
   "stopped_epoch": 9,
   "training_params": {
-    "data_folder": "D:\\datasets\\eeg\\dataset_processed\\wike25_tf",
     "augment": true,
     "train_split": 0.9,
     "data_percentage": 0.1,
