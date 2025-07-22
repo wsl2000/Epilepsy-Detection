@@ -140,7 +140,6 @@ PREDICTIONS.csv
 
 # Additional ML/DL ignores
 *.pt
-*.pth
 *.ckpt
 *.pkl
 *.pickle
