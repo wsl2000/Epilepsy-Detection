@@ -155,8 +155,8 @@ def predict_labels(channels: List[str], data: np.ndarray,
         model = Model(params).to(DEVICE).eval()
         
         # 加载训练好的权重
-        time.sleep(0.1)  
         state_dict = torch.load(params_dict["model_weight_path"], map_location=DEVICE)
+        time.sleep(0.1)  
         print(f"加载模型权重: {params_dict['model_weight_path']}")
         model.load_state_dict(state_dict)
     except Exception as e:
