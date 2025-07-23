@@ -158,7 +158,7 @@ def predict_labels(channels: List[str], data: np.ndarray,
         #     time.sleep(0.4)
         #     raise FileNotFoundError(f"model_weight_path file not found: {params_dict['model_weight_path']}")
         
-        model = Model(params).to(DEVICE).eval()
+        # model = Model(params).to(DEVICE).eval()
         time.sleep(0.1)
         state_dict = torch.load(params_dict["model_weight_path"], map_location=DEVICE)
         time.sleep(0.1)
