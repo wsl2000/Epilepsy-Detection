@@ -18,7 +18,7 @@ class Model(nn.Module):
             dim_feedforward=800, seq_len=30,
             n_layer=12, nhead=8
         )
-        # time.sleep(0.1) # 运行到这里如果不通过，则应该是18s跳出
+        time.sleep(0.1) # 运行到这里如果不通过，则应该是18s跳出
         if param.use_pretrained_weights:
             map_location = torch.device(f'cuda:{param.cuda}')
             self.backbone.load_state_dict(torch.load(param.foundation_dir, map_location=map_location))
