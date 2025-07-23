@@ -133,49 +133,6 @@ def preprocess_eeg_data(channels, data, fs, target_fs=250):
     
     return patches
 
-def load_chunked_model(base_name):
-    """
-    从分块文件中重新加载模型
-    
-    Args:
-        base_name: 模型文件的基础名称（不含扩展名）
-    
-    Returns:
-        state_dict: 重新组装的模型状态字典
-    """
-    import json
-    import pickle
-    
-    # 加载元数据
-    metadata_filename = f"{base_name}_metadata.json"
-    with open(metadata_filename, 'r') as f:
-        metadata = json.load(f)
-    
-    num_chunks = metadata['num_chunks']
-    total_size = metadata['total_size']
-    chunk_size_bytes = metadata['chunk_size_bytes']
-    
-    # print(f"加载 {num_chunks} 个模型块...")
-    
-    # 重新组装数据
-    serialized_data = bytearray(total_size)
-    
-    for i in range(num_chunks):
-        chunk_filename = f"{base_name}_chunk_{i:03d}.pkl"
-        
-        with open(chunk_filename, 'rb') as f:
-            chunk_data = f.read()
-        
-        start_idx = i * chunk_size_bytes
-        end_idx = start_idx + len(chunk_data)
-        serialized_data[start_idx:end_idx] = chunk_data
-    
-    # 反序列化
-    state_dict = pickle.loads(bytes(serialized_data))
-    # print("模型重新组装完成！")
-    
-    return state_dict
-
 def predict_labels(channels: List[str], data: np.ndarray,
                    fs: float, reference_system: str,
                    model_name: str = "model.json") -> Dict[str, Any]:
@@ -195,25 +152,8 @@ def predict_labels(channels: List[str], data: np.ndarray,
     try:
         model = Model(params).to(DEVICE).eval()
         
-        # 检查是否使用分块加载
-        model_weight_path = params_dict["model_weight_path"]
-        
-        if model_weight_path.endswith('.pth'):
-            # 检查是否存在分块文件
-            base_name = os.path.splitext(model_weight_path)[0]
-            metadata_file = f"{base_name}_metadata.json"
-            
-            if os.path.exists(metadata_file):
-                # print(f"检测到分块模型，使用分块加载: {base_name}")
-                state_dict = load_chunked_model(base_name)
-            else:
-                # print(f"加载完整模型权重: {model_weight_path}")
-                state_dict = torch.load(model_weight_path, map_location=DEVICE)
-        else:
-            # 其他格式保持原样
-            print(f"加载模型权重: {model_weight_path}")
-            state_dict = torch.load(model_weight_path, map_location=DEVICE)
-            
+        # 加载训练好的权重
+        state_dict = torch.load(params_dict["model_weight_path"], map_location=DEVICE)
         model.load_state_dict(state_dict)
     except Exception as e:
         print(f"模型加载失败: {e}")
