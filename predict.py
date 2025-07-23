@@ -144,7 +144,7 @@ def predict_labels(channels: List[str], data: np.ndarray,
     # 1. 读取元数据 & 模型参数
     with open(model_name, "r") as f:
         params_dict = json.load(f)
-    time.sleep(0.1)
+    # time.sleep(0.1)
     
     # 创建模拟参数对象
     params = MockParams(params_dict)
@@ -158,12 +158,12 @@ def predict_labels(channels: List[str], data: np.ndarray,
         #     time.sleep(0.4)
         #     raise FileNotFoundError(f"model_weight_path file not found: {params_dict['model_weight_path']}")
         
-        # model = Model(params).to(DEVICE).eval()
-        time.sleep(0.1)
+        model = Model(params).to(DEVICE).eval()
+        # time.sleep(0.1)
         state_dict = torch.load(params_dict["model_weight_path"], map_location=DEVICE)
-        time.sleep(0.1)
+        # time.sleep(0.1)
         model.load_state_dict(state_dict)
-        time.sleep(0.1)
+        # time.sleep(0.1)
     except Exception as e:
         print(f"模型加载失败: {e}")
         return {"seizure_present": False,
