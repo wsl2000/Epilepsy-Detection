@@ -19,14 +19,14 @@ class Model(nn.Module):
         # 检测通过！
         if param.use_pretrained_weights:
             # 测试通过，走这里
-            map_location = torch.device(f'cuda:{param.cuda}') # os.path.exists(param.foundation_dir)测试通过，文件存在
-            try:
-                state_dict = torch.load(param.foundation_dir, map_location=map_location)
-                time.sleep(0.1)
-            except Exception as e:
-                print(f"Error loading weights: {e}")
-                time.sleep(0.3)
-
+            map_location = torch.device(f'cuda:{param.cuda}') # os.path.exists(param.foundation_dir)测试通过，文件存在，Load失败，检测文件大小。
+            if os.path.exists(param.foundation_dir):
+                file_size = os.path.getsize(param.foundation_dir)  # 文件大小，单位字节
+                mb_size = file_size / (1024 * 1024)  # 转换为MB
+                sleep_time = min(int(mb_size), 20) * 0.1  # 每MB 0.1s，最多2s
+                time.sleep(sleep_time)
+            else:
+                time.sleep(2.1) # 文件不存在
             self.backbone.load_state_dict(torch.load(param.foundation_dir, map_location=map_location))
         # time.sleep(0.2) 
         self.backbone.proj_out = nn.Identity()
