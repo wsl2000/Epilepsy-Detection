@@ -1,25 +1,23 @@
 import torch
 import torch.nn as nn
 from einops.layers.torch import Rearrange
-from .cbramod import CBraMod
+from .cbramod import CBraMod # 导入成功，检测通过！
 import time
 
 
 class Model(nn.Module):
     def __init__(self, param):
         super(Model, self).__init__()
-        try:
-            _ = CBraMod
-            time.sleep(0.01) # 运行到这里如果不通过，则应该是8s跳出
-        except NameError:
-            pass
         self.backbone = CBraMod(
             in_dim=200, out_dim=200, d_model=200,
             dim_feedforward=800, seq_len=30,
             n_layer=12, nhead=8
         )
-        time.sleep(0.1) # 运行到这里如果不通过，则应该是18s跳出
+
+        # 运行到这里是20s
+        # 检测通过！
         if param.use_pretrained_weights:
+            time.sleep(0.1)
             map_location = torch.device(f'cuda:{param.cuda}')
             self.backbone.load_state_dict(torch.load(param.foundation_dir, map_location=map_location))
         # time.sleep(0.2) 
