@@ -139,7 +139,6 @@ PREDICTIONS.csv
 .vscode/
 
 # Additional ML/DL ignores
-*.pt
 *.ckpt
 *.pkl
 *.pickle
