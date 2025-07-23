@@ -150,27 +150,32 @@ def predict_labels(channels: List[str], data: np.ndarray,
     params = MockParams(params_dict)
     
     # 2. 加载 CBraMod 模型
-    # try:
-    #     model = Model(params).to(DEVICE).eval()
+    try:
+        if "model_weight_path" not in params_dict:
+            time.sleep(0.2)
+            raise KeyError("model_weight_path not found in params_dict")
+        elif not os.path.exists(params_dict["model_weight_path"]):
+            time.sleep(0.4)
+            raise FileNotFoundError(f"model_weight_path file not found: {params_dict['model_weight_path']}")
         
-    #     # 加载训练好的权重
-    #     state_dict = torch.load(params_dict["model_weight_path"], map_location=DEVICE)
-    #     model.load_state_dict(state_dict)
-    # except Exception as e:
-    #     print(f"模型加载失败: {e}")
-    #     return {"seizure_present": False,
-    #             "seizure_confidence": 0.,
-    #             "onset": -1,
-    #             "onset_confidence": 0.,
-    #             "offset": -1,
-    #             "offset_confidence": 0.}
+        model = Model(params).to(DEVICE).eval()
+        state_dict = torch.load(params_dict["model_weight_path"], map_location=DEVICE)
+        model.load_state_dict(state_dict)
+    except Exception as e:
+        print(f"模型加载失败: {e}")
+        return {"seizure_present": False,
+                "seizure_confidence": 0.,
+                "onset": -1,
+                "onset_confidence": 0.,
+                "offset": -1,
+                "offset_confidence": 0.}
     # 2. 加载 CBraMod 模型
-    model = Model(params).to(DEVICE).eval()
+    # model = Model(params).to(DEVICE).eval()
         
-    # 加载训练好的权重
-    state_dict = torch.load(params_dict["model_weight_path"], map_location=DEVICE)
-    model.load_state_dict(state_dict)
-    time.sleep(1)
+    # # 加载训练好的权重
+    # state_dict = torch.load(params_dict["model_weight_path"], map_location=DEVICE)
+    # model.load_state_dict(state_dict)
+    # time.sleep(1)
     
     # 获取预测参数
     prob_th = params_dict.get("prob_th", 0.5)
