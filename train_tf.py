@@ -18,15 +18,48 @@ from typing import List, Tuple
 import concurrent.futures
 from functools import partial
 import multiprocessing as mp
+import argparse
 
 from wettbewerb import load_references, get_3montages, get_6montages, EEGDataset
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-TARGET_FS = 400
-WIN_SEC = 4.0
-STEP_SEC = 2.0
-WIN_SAMP = int(TARGET_FS * WIN_SEC)
-STEP_SAMP = int(TARGET_FS * STEP_SEC)
+def get_device_from_config(device_config):
+    """Get device from configuration."""
+    device_str = device_config.get("device", "auto")
+    device_id = device_config.get("device_id", 0)
+    
+    if device_str == "auto":
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    elif device_str == "cuda" and torch.cuda.is_available():
+        device = f"cuda:{device_id}" if device_id is not None else "cuda"
+    else:
+        device = "cpu"
+    
+    return device
+
+# Will be set from config
+DEVICE = None
+TARGET_FS = None
+WIN_SEC = None
+STEP_SEC = None
+WIN_SAMP = None
+STEP_SAMP = None
+
+def init_global_params(config):
+    """Initialize global parameters from configuration."""
+    global DEVICE, TARGET_FS, WIN_SEC, STEP_SEC, WIN_SAMP, STEP_SAMP
+    
+    DEVICE = get_device_from_config(config.get("device", {}))
+    TARGET_FS = config["data"].get("target_fs", 400)
+    WIN_SEC = config["data"].get("win_sec", 4.0)
+    STEP_SEC = config["data"].get("step_sec", 2.0)
+    WIN_SAMP = int(TARGET_FS * WIN_SEC)
+    STEP_SAMP = int(TARGET_FS * STEP_SEC)
+    
+    print(f"🔧 Global parameters initialized:")
+    print(f"   Device: {DEVICE}")
+    print(f"   Target FS: {TARGET_FS} Hz")
+    print(f"   Window: {WIN_SEC}s ({WIN_SAMP} samples)")
+    print(f"   Step: {STEP_SEC}s ({STEP_SAMP} samples)")
 
 def load_single_file(args):
     """Load a single EEG file for multiprocessing."""
@@ -258,9 +291,8 @@ def add_frequency_features(window):
 # ------------------------------------------------------------------ #
 class PreprocessedEEGDataset(Dataset):
     """Dataset for loading preprocessed EEG data from disk."""
-    def __init__(self, data_folder: str = r"D:\datasets\eeg\dataset_processed\wike25_tf", 
-                 augment: bool = True, train_split: float = 0.9, is_train: bool = True, 
-                 seed: int = 2025, data_percentage: float = 1.0):
+    def __init__(self, data_folder: str, augment: bool = True, train_split: float = 0.9, 
+                 is_train: bool = True, seed: int = 2025, data_percentage: float = 1.0):
         
         self.data_folder = data_folder
         self.augment = augment
@@ -269,6 +301,9 @@ class PreprocessedEEGDataset(Dataset):
         
         # Load dataset metadata
         metadata_path = os.path.join(data_folder, 'dataset_metadata.json')
+        if not os.path.exists(metadata_path):
+            raise FileNotFoundError(f"Dataset metadata not found: {metadata_path}")
+            
         with open(metadata_path, 'r') as f:
             self.dataset_metadata = json.load(f)
         
@@ -651,14 +686,22 @@ def evaluate_model_competition(model, val_loader, criterion, device):
     all_probs = []
     all_targets = []
     
+    # Add progress bar for validation
+    val_pbar = tqdm(val_loader, desc="Validating", leave=False)
+    
     with torch.no_grad():
-        for xb, yb in val_loader:
+        for batch_idx, (xb, yb) in enumerate(val_pbar):
             xb, yb = xb.to(device, non_blocking=True), yb.to(device, non_blocking=True)
             
             logits = model(xb, use_checkpoint=False)
             loss = criterion(logits, yb)
             
-            val_loss += loss.item() * xb.size(0)
+            # Check for NaN/Inf loss during validation
+            if torch.isfinite(loss):
+                val_loss += loss.item() * xb.size(0)
+            else:
+                # Skip this batch if loss is NaN/Inf
+                continue
             
             # Get probabilities for more detailed analysis
             probs = F.softmax(logits, dim=1)
@@ -670,6 +713,16 @@ def evaluate_model_competition(model, val_loader, criterion, device):
             fp += ((pred == 1) & (yb == 0)).sum().item()
             fn += ((pred == 0) & (yb == 1)).sum().item()
             tn += ((pred == 0) & (yb == 0)).sum().item()
+            
+            # Update progress bar with current metrics
+            current_loss = val_loss / max(1, (batch_idx + 1) * val_loader.batch_size)
+            current_sens = tp / (tp + fn + 1e-9)
+            current_ppv = tp / (tp + fp + 1e-9)
+            val_pbar.set_postfix({
+                'Loss': f'{current_loss:.4f}',
+                'Sens': f'{current_sens:.3f}',
+                'PPV': f'{current_ppv:.3f}'
+            })
     
     # Standard metrics
     val_sens = tp / (tp + fn + 1e-9)
@@ -762,18 +815,37 @@ def evaluate_model(model, val_loader, criterion, device):
     model.eval()
     val_loss, tp, fp, fn = 0.0, 0, 0, 0
     
+    # Add progress bar for validation
+    val_pbar = tqdm(val_loader, desc="Validating", leave=False)
+    
     with torch.no_grad():
-        for xb, yb in val_loader:
+        for batch_idx, (xb, yb) in enumerate(val_pbar):
             xb, yb = xb.to(device, non_blocking=True), yb.to(device, non_blocking=True)
             
             logits = model(xb, use_checkpoint=False)  # No checkpointing during eval
             loss = criterion(logits, yb)
             
-            val_loss += loss.item() * xb.size(0)
+            # Check for NaN/Inf loss during validation
+            if torch.isfinite(loss):
+                val_loss += loss.item() * xb.size(0)
+            else:
+                # Skip this batch if loss is NaN/Inf
+                continue
+            
             pred = logits.argmax(1)
             tp += ((pred == 1) & (yb == 1)).sum().item()
             fp += ((pred == 1) & (yb == 0)).sum().item()
             fn += ((pred == 0) & (yb == 1)).sum().item()
+            
+            # Update progress bar with current metrics
+            current_loss = val_loss / max(1, (batch_idx + 1) * val_loader.batch_size)
+            current_sens = tp / (tp + fn + 1e-9)
+            current_ppv = tp / (tp + fp + 1e-9)
+            val_pbar.set_postfix({
+                'Loss': f'{current_loss:.4f}',
+                'Sens': f'{current_sens:.3f}',
+                'PPV': f'{current_ppv:.3f}'
+            })
     
     val_sens = tp / (tp + fn + 1e-9)
     val_ppv = tp / (tp + fp + 1e-9)
@@ -782,75 +854,117 @@ def evaluate_model(model, val_loader, criterion, device):
     
     return val_loss, val_f1, val_sens, val_ppv
 
-def train(params=None):
-    # Default training parameters
-    default_params = {
-        # Data parameters
-        "data_folder": r"D:\datasets\eeg\dataset_processed\wike25_tf",
-        "augment": True,
-        "train_split": 0.9,
-        "data_percentage": 1.0,  # New parameter: percentage of data to use (0.1 = 10%, 1.0 = 100%)
-        
-        # Model parameters
-        "model_scale": "base",  # "small", "base", "large", "xl"
-        "input_channels": 36,
-        "patch_size": 16,
-        "dropout": 0.1,
-        "use_gradient_checkpointing": True,
-        
-        # Training parameters
-        "epochs": 20,
-        "batch_size": 64,  # Can increase since data loading is more efficient
-        "val_batch_size": 128,
-        "learning_rate": 2e-4,
-        "weight_decay": 0.01,
-        "betas": (0.9, 0.95),
-        
-        # Loss parameters - Updated for competition
-        "loss_type": "competition",  # "focal", "competition", "interval_aware"
-        "focal_alpha": 0.25,
-        "focal_gamma": 2.0,
-        "interval_weight": 2.0,
-        "false_positive_penalty": 1.5,
-        "balance_weight": 2.0,
-        
-        # Scheduler parameters
-        "warmup_ratio": 0.1,
-        "min_lr_ratio": 0.05,
-        
-        # Early stopping parameters
-        "patience": 15,
-        "early_stopping_metric": "competition_score",  # "val_f1" or "competition_score"
-        
-        # Training optimization
-        "gradient_clip_norm": 1.0,
-        "num_workers": 4,  # Can increase since no heavy preprocessing
-        "pin_memory": True,
-        
-        # Random seed
-        "seed": 2025,
-        
-        # Save parameters
-        "save_model_path": "eeg_transformer.pt",
-        "save_metadata_path": "transformer_model.json",
-        "weights_folder": "weights/tf"  # New parameter for epoch weights
-    }
+def load_config(config_path="train_tf_config.json"):
+    """Load training configuration from JSON file."""
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"Configuration file not found: {config_path}")
     
-    # Merge user params with defaults
-    if params is None:
-        params = default_params
-    else:
-        for key, value in params.items():
-            default_params[key] = value
-        params = default_params
+    with open(config_path, 'r', encoding='utf-8') as f:
+        config = json.load(f)
+    
+    print(f"📝 Loaded configuration from: {config_path}")
+    return config
+
+def flatten_config(config):
+    """Flatten nested config for backward compatibility."""
+    flat_config = {}
+    
+    for section, params in config.items():
+        if isinstance(params, dict):
+            for key, value in params.items():
+                flat_config[key] = value
+        else:
+            flat_config[section] = params
+    
+    return flat_config
+
+def validate_config(config):
+    """Validate configuration parameters."""
+    required_sections = ["paths", "data", "model", "training", "loss", "scheduler", "early_stopping"]
+    
+    for section in required_sections:
+        if section not in config:
+            raise ValueError(f"Missing required configuration section: {section}")
+    
+    # Validate paths
+    paths = config["paths"]
+    required_paths = ["preprocessed_folder", "data_folder", "save_model_path", "save_metadata_path", "weights_folder"]
+    for path_key in required_paths:
+        if path_key not in paths:
+            raise ValueError(f"Missing required path configuration: {path_key}")
+    
+    # Validate data percentage
+    data_percentage = config["data"].get("data_percentage", 1.0)
+    if not 0.1 <= data_percentage <= 1.0:
+        raise ValueError("data_percentage must be between 0.1 and 1.0")
+    
+    # Validate model scale
+    valid_scales = ["small", "base", "large", "xl"]
+    model_scale = config["model"].get("model_scale", "base")
+    if model_scale not in valid_scales:
+        raise ValueError(f"model_scale must be one of {valid_scales}")
+    
+    # Validate loss type
+    valid_loss_types = ["focal", "competition", "interval_aware"]
+    loss_type = config["loss"].get("loss_type", "focal")
+    if loss_type not in valid_loss_types:
+        raise ValueError(f"loss_type must be one of {valid_loss_types}")
+    
+    # Validate device configuration
+    device_config = config.get("device", {})
+    valid_devices = ["auto", "cpu", "cuda"]
+    device = device_config.get("device", "auto")
+    if device not in valid_devices:
+        raise ValueError(f"device must be one of {valid_devices}")
+    
+    print("✅ Configuration validation passed")
+    return True
+
+def train(config_path="train_tf_config.json", params_override=None):
+    """
+    Train the EEG Transformer model.
+    
+    Args:
+        config_path (str): Path to configuration JSON file
+        params_override (dict): Optional parameters to override config values
+    """
+    
+    # Load configuration from JSON file
+    config = load_config(config_path)
+    validate_config(config)
+    
+    # Initialize global parameters from config
+    init_global_params(config)
+    
+    # Flatten config for backward compatibility
+    params = flatten_config(config)
+    
+    # Apply parameter overrides if provided
+    if params_override:
+        print(f"🔧 Applying {len(params_override)} parameter overrides:")
+        for key, value in params_override.items():
+            old_value = params.get(key, "Not set")
+            params[key] = value
+            print(f"   {key}: {old_value} -> {value}")
+        print()
+    
+    # Check if preprocessed data exists
+    preprocessed_folder = params["preprocessed_folder"]
+    if not os.path.exists(os.path.join(preprocessed_folder, 'dataset_metadata.json')):
+        raise FileNotFoundError(f"❌ Preprocessed data not found! Please run preprocess_data.py first to create data in: {preprocessed_folder}")
     
     # Print training configuration with data percentage highlight
     print("🔧 Training Configuration:")
-    for key, value in params.items():
-        if key == "data_percentage" and value < 1.0:
-            print(f"   {key}: {value} ⚡ (Fast training mode - using {value*100:.1f}% of data)")
-        else:
-            print(f"   {key}: {value}")
+    print(f"   📂 Data source: {params['preprocessed_folder']}")
+    print(f"   📊 Data usage: {params['data_percentage']*100:.1f}% of dataset")
+    if params["data_percentage"] < 1.0:
+        print(f"   ⚡ Fast training mode enabled")
+    print(f"   🧠 Model: {params['model_scale']} scale ({params['input_channels']} channels)")
+    print(f"   🎯 Training: {params['epochs']} epochs, batch size {params['batch_size']}")
+    print(f"   📉 Loss: {params['loss_type']} (early stop: {params['metric']})")
+    print(f"   💾 Output: {params['weights_folder']}")
+    print(f"   🖥️ Device: {DEVICE}")
+    print(f"   🔧 Mixed precision: {params.get('mixed_precision', True)}")
     print()
     
     set_seed(params["seed"])
@@ -868,7 +982,7 @@ def train(params=None):
         train_split=params["train_split"],
         is_train=True,
         seed=params["seed"],
-        data_percentage=params["data_percentage"]  # Add data percentage parameter
+        data_percentage=params["data_percentage"]
     )
     
     val_dataset = PreprocessedEEGDataset(
@@ -877,7 +991,7 @@ def train(params=None):
         train_split=params["train_split"],
         is_train=False,
         seed=params["seed"],
-        data_percentage=params["data_percentage"]  # Add data percentage parameter
+        data_percentage=params["data_percentage"]
     )
     
     # Create data loaders
@@ -910,7 +1024,7 @@ def train(params=None):
     print(f"Model scale: {params['model_scale']}")
     print(f"Model parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad):,}")
     
-    # Create loss function and optimizer
+    # Create loss function
     if params["loss_type"] == "competition":
         criterion = CompetitionLoss(
             alpha=params["focal_alpha"], 
@@ -928,6 +1042,7 @@ def train(params=None):
         criterion = FocalLoss(alpha=params["focal_alpha"], gamma=params["focal_gamma"])
         print(f"📊 Using Focal Loss (alpha={params['focal_alpha']}, gamma={params['focal_gamma']})")
     
+    # Create optimizer
     optimizer = torch.optim.AdamW(
         model.parameters(), 
         lr=params["learning_rate"],
@@ -949,36 +1064,113 @@ def train(params=None):
     best_val_score = 0.0
     best_threshold = 0.5
     patience_counter = 0
+
+    # AMP scaler for mixed precision
+    use_mixed_precision = params.get("mixed_precision", True) and DEVICE.startswith("cuda")
+    scaler = torch.cuda.amp.GradScaler() if use_mixed_precision else None
     
+    if use_mixed_precision:
+        print("🚀 Using mixed precision training for faster convergence")
+
     print(f"🚀 Starting training for {params['epochs']} epochs...")
-    print(f"🎯 Early stopping based on: {params['early_stopping_metric']}")
+    print(f"🎯 Early stopping based on: {params['metric']}")
     
     for ep in range(1, params["epochs"] + 1):
         # Training phase
         model.train()
         train_dataset.training = True  # Set training flag directly on dataset
         train_loss, tp, fp, fn = 0.0, 0, 0, 0
+        
+        # Moving average for real-time loss display
+        running_loss = 0.0
 
-        for step, (xb, yb) in enumerate(tqdm(train_dl, desc=f"Epoch {ep} [Train]")):
+        train_pbar = tqdm(train_dl, desc=f"Epoch {ep:02d} [Train]")
+        for step, (xb, yb) in enumerate(train_pbar):
             xb, yb = xb.to(DEVICE, non_blocking=True), yb.to(DEVICE, non_blocking=True)
             
             optimizer.zero_grad()
             
-            logits = model(xb, use_checkpoint=params["use_gradient_checkpointing"])
-            loss = criterion(logits, yb)
-            loss.backward()
+            # Forward pass and loss calculation
+            if scaler is not None:
+                with torch.cuda.amp.autocast():
+                    logits = model(xb, use_checkpoint=params["use_gradient_checkpointing"])
+                    loss = criterion(logits, yb)
+                
+                # Check for NaN/Inf loss before any gradient operations
+                if not torch.isfinite(loss):
+                    continue
+                
+                # Scale the loss and backward pass
+                scaler.scale(loss).backward()
+                
+                # Unscale gradients for clipping
+                scaler.unscale_(optimizer)
+                
+                # Clip gradients and check for NaN
+                grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=params["gradient_clip_norm"])
+                
+                # Check for NaN gradients after unscaling
+                if torch.isfinite(grad_norm):
+                    # Only step if gradients are finite
+                    scaler.step(optimizer)
+                    scaler.update()
+                else:
+                    # Skip update but still need to update scaler state
+                    scaler.update()
+                    
+            else:
+                logits = model(xb, use_checkpoint=params["use_gradient_checkpointing"])
+                loss = criterion(logits, yb)
+                
+                # Check for NaN/Inf loss
+                if not torch.isfinite(loss):
+                    continue
+                
+                loss.backward()
+                
+                # Clip gradients and check for NaN
+                grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=params["gradient_clip_norm"])
+                
+                # Only step if gradients are finite
+                if torch.isfinite(grad_norm):
+                    optimizer.step()
             
-            # Gradient clipping
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=params["gradient_clip_norm"])
-            
-            optimizer.step()
             scheduler.step()
 
-            train_loss += loss.item() * xb.size(0)
+            # Update running statistics - only if loss is finite
+            batch_loss = loss.item()
+            if torch.isfinite(loss):
+                train_loss += batch_loss * xb.size(0)
+                # Use more stable running average
+                if step == 0:
+                    running_loss = batch_loss
+                else:
+                    running_loss = 0.95 * running_loss + 0.05 * batch_loss  # More stable smoothing
+            
             pred = logits.argmax(1)
-            tp += ((pred == 1) & (yb == 1)).sum().item()
-            fp += ((pred == 1) & (yb == 0)).sum().item()
-            fn += ((pred == 0) & (yb == 1)).sum().item()
+            batch_tp = ((pred == 1) & (yb == 1)).sum().item()
+            batch_fp = ((pred == 1) & (yb == 0)).sum().item()
+            batch_fn = ((pred == 0) & (yb == 1)).sum().item()
+            
+            tp += batch_tp
+            fp += batch_fp
+            fn += batch_fn
+            
+            # Real-time metrics display
+            current_sens = tp / (tp + fn + 1e-9)
+            current_ppv = tp / (tp + fp + 1e-9)
+            current_f1 = 2 * current_sens * current_ppv / (current_sens + current_ppv + 1e-9)
+            current_lr = scheduler.get_last_lr()[0]
+            
+            # Update progress bar with real-time metrics
+            train_pbar.set_postfix({
+                'Loss': f'{running_loss:.4f}',
+                'BatchLoss': f'{batch_loss:.4f}',
+                'F1': f'{current_f1:.3f}',
+                'Sens': f'{current_sens:.3f}',
+                'PPV': f'{current_ppv:.3f}',
+                'LR': f'{current_lr:.2e}'
+            })
 
         # Calculate training metrics
         train_sens = tp / (tp + fn + 1e-9)
@@ -987,16 +1179,19 @@ def train(params=None):
         train_loss = train_loss / len(train_dataset)
         
         # Validation phase with competition metrics
+        print(f"📊 Epoch {ep} Training Complete - Loss: {train_loss:.4f}, F1: {train_f1:.4f}, Sens: {train_sens:.4f}, PPV: {train_ppv:.4f}")
+        print("🔍 Starting validation...")
+        
         train_dataset.training = False  # Set training flag to False for validation
         val_loss, val_f1, val_sens, val_ppv, competition_score, optimal_threshold = evaluate_model_competition(
             model, val_dl, criterion, DEVICE
         )
 
-        print(f"Epoch {ep:02d}  "
-              f"Train - Loss: {train_loss:.4f}, F1: {train_f1:.4f}, Sens: {train_sens:.4f}, PPV: {train_ppv:.4f}  "
-              f"Val - Loss: {val_loss:.4f}, F1: {val_f1:.4f}, Sens: {val_sens:.4f}, PPV: {val_ppv:.4f}  "
-              f"CompScore: {competition_score:.4f}, OptThresh: {optimal_threshold:.3f}, "
-              f"LR: {scheduler.get_last_lr()[0]:.2e}")
+        print(f"✅ Epoch {ep:02d} Complete:")
+        print(f"   🚂 Train - Loss: {train_loss:.4f}, F1: {train_f1:.4f}, Sens: {train_sens:.4f}, PPV: {train_ppv:.4f}")
+        print(f"   🔍 Val   - Loss: {val_loss:.4f}, F1: {val_f1:.4f}, Sens: {val_sens:.4f}, PPV: {val_ppv:.4f}")
+        print(f"   🏆 Competition Score: {competition_score:.4f}, Optimal Threshold: {optimal_threshold:.3f}")
+        print(f"   📈 Learning Rate: {scheduler.get_last_lr()[0]:.2e}")
 
         # Save model for current epoch with detailed filename
         epoch_filename = f"epoch_{ep:03d}_f1_{val_f1:.4f}_comp_{competition_score:.4f}_sens_{val_sens:.4f}_ppv_{val_ppv:.4f}.pt"
@@ -1018,13 +1213,13 @@ def train(params=None):
             'train_ppv': train_ppv,
             'train_loss': train_loss,
             'learning_rate': scheduler.get_last_lr()[0],
-            'params': params
+            'config': config  # Save original config structure
         }, epoch_model_path)
         
         print(f"💾 Epoch {ep} model saved: {epoch_filename}")
 
         # Early stopping based on selected metric
-        current_score = competition_score if params["early_stopping_metric"] == "competition_score" else val_f1
+        current_score = competition_score if params["metric"] == "competition_score" else val_f1
         
         if current_score > best_val_score:
             best_val_score = current_score
@@ -1041,9 +1236,9 @@ def train(params=None):
                 'train_f1': train_f1,
                 'val_loss': val_loss,
                 'train_loss': train_loss,
-                'params': params
+                'config': config  # Save original config structure
             }, params["save_model_path"])
-            metric_name = "Competition Score" if params["early_stopping_metric"] == "competition_score" else "F1"
+            metric_name = "Competition Score" if params["metric"] == "competition_score" else "F1"
             print(f"🏆 New best {metric_name}: {best_val_score:.4f} - Best model updated!")
         else:
             patience_counter += 1
@@ -1051,7 +1246,7 @@ def train(params=None):
             
             if patience_counter >= params["patience"]:
                 print(f"🛑 Early stopping at epoch {ep}")
-                print(f"🏆 Best {params['early_stopping_metric']}: {best_val_score:.4f}")
+                print(f"🏆 Best {params['metric']}: {best_val_score:.4f}")
                 break
 
     # Load best model for final evaluation
@@ -1062,6 +1257,8 @@ def train(params=None):
     final_val_loss, final_val_f1, final_val_sens, final_val_ppv = evaluate_model(model, val_dl, criterion, DEVICE)
     
     # Save model metadata
+    epoch_files = [f for f in os.listdir(weights_folder) if f.startswith('epoch_') and f.endswith('.pt')]
+    epoch_files.sort()
     metadata = {
         "model_weight_path": params["save_model_path"],
         "model_type": "EEGTransformer",
@@ -1075,7 +1272,7 @@ def train(params=None):
         "emb_dim": model.emb_dim,
         "num_heads": 8,
         "num_layers": model.num_layers,
-        "best_val_f1": checkpoint.get('best_val_f1', val_f1),
+        "best_val_f1": checkpoint.get('best_val_f1', final_val_f1),
         "best_competition_score": checkpoint.get('best_competition_score', 0.0),
         "optimal_threshold": checkpoint.get('best_threshold', 0.5),
         "final_val_f1": final_val_f1,
@@ -1085,7 +1282,7 @@ def train(params=None):
         "train_samples": len(train_dataset),
         "val_samples": len(val_dataset),
         "stopped_epoch": checkpoint['epoch'],
-        "training_params": params,
+        "config_used": config,  # Save the complete config structure
         "epoch_checkpoints": {
             "folder": weights_folder,
             "total_epochs_saved": len(epoch_files),
@@ -1096,12 +1293,8 @@ def train(params=None):
     with open(params["save_metadata_path"], "w") as f:
         json.dump(metadata, f, indent=2)
     
-    # Add training summary with epoch checkpoints info
-    epoch_files = [f for f in os.listdir(weights_folder) if f.startswith('epoch_') and f.endswith('.pt')]
-    epoch_files.sort()
-    
     print(f"\n📚 Training Summary:")
-    print(f"🏆 Best validation F1: {best_val_score:.4f}")
+    print(f"🏆 Best validation score: {best_val_score:.4f}")
     print(f"📁 Epoch checkpoints saved: {len(epoch_files)} files in {weights_folder}")
     print(f"📊 最终验证指标:")
     print(f"   - F1: {final_val_f1:.4f}")
@@ -1111,43 +1304,8 @@ def train(params=None):
     print(f"📁 模型已保存: {params['save_model_path']} / {params['save_metadata_path']}")
     print(f"🔢 模型参数量: {sum(p.numel() for p in model.parameters() if p.requires_grad):,}")
     
-    # Update metadata to include epoch checkpoints info
-    metadata = {
-        "model_weight_path": params["save_model_path"],
-        "model_type": "EEGTransformer",
-        "model_scale": params["model_scale"],
-        "prob_th": best_threshold,  # Use optimal threshold
-        "min_len": 2,
-        "win_sec": WIN_SEC,
-        "step_sec": STEP_SEC,
-        "fs": TARGET_FS,
-        "patch_size": params["patch_size"],
-        "emb_dim": model.emb_dim,
-        "num_heads": 8,
-        "num_layers": model.num_layers,
-        "best_val_f1": checkpoint.get('best_val_f1', val_f1),
-        "best_competition_score": checkpoint.get('best_competition_score', 0.0),
-        "optimal_threshold": checkpoint.get('best_threshold', 0.5),
-        "final_val_f1": final_val_f1,
-        "final_val_sens": final_val_sens,
-        "final_val_ppv": final_val_ppv,
-        "total_params": sum(p.numel() for p in model.parameters() if p.requires_grad),
-        "train_samples": len(train_dataset),
-        "val_samples": len(val_dataset),
-        "stopped_epoch": checkpoint['epoch'],
-        "training_params": params,
-        "epoch_checkpoints": {
-            "folder": weights_folder,
-            "total_epochs_saved": len(epoch_files),
-            "checkpoint_files": epoch_files
-        }
-    }
-    
-    with open(params["save_metadata_path"], "w") as f:
-        json.dump(metadata, f, indent=2)
-    
     return {
-        "best_val_f1": best_val_score,
+        "best_val_score": best_val_score,
         "final_metrics": {
             "f1": final_val_f1,
             "sensitivity": final_val_sens,
@@ -1162,36 +1320,34 @@ def train(params=None):
         }
     }
 
+
 if __name__ == "__main__":
-    # First, check if preprocessed data exists
-    preprocessed_folder = r"D:\datasets\eeg\dataset_processed\wike25_tf"
-    if not os.path.exists(os.path.join(preprocessed_folder, 'dataset_metadata.json')):
-        print("❌ Preprocessed data not found!")
-        print(f"Please run preprocess_data.py first to create data in: {preprocessed_folder}")
+    parser = argparse.ArgumentParser(description="EEG Transformer Training")
+    parser.add_argument(
+        "--config", type=str, default="train_tf_config.json",
+        help="Path to the config file (default: train_tf_config.json)"
+    )
+    args = parser.parse_args()
+    config_file = args.config
+
+    if not os.path.exists(config_file):
+        print(f"❌ Configuration file not found: {config_file}")
+        print("Please create the configuration file first.")
         exit(1)
-    
-    # Training with competition-optimized parameters
-    custom_params = {
-        "epochs": 10,
-        "model_scale": "small",
-        "batch_size": 128,
-        "learning_rate": 3e-4,
-        "weights_folder": "weights/tf",
-        "data_percentage": 1,
-        "patience": 5,
-        # Competition-specific parameters
-        "loss_type": "competition",  # Use competition-aware loss
-        "early_stopping_metric": "competition_score",  # Stop based on competition score
-        "interval_weight": 2.0,  # Higher weight for interval accuracy
-        "false_positive_penalty": 1.5,  # Penalize false positives
-        "balance_weight": 2.0  # Balance classes for better sensitivity
-    }
-    
-    print("⚡ Competition-Optimized Training Mode!")
-    print(f"📊 Loss: {custom_params['loss_type']}")
-    print(f"🎯 Early stopping: {custom_params['early_stopping_metric']}")
-    print(f"📊 Using {custom_params['data_percentage']*100:.1f}% of available data")
-    
-    results = train(custom_params)
-    print(f"\n🎉 Training completed! Best score: {results.get('best_competition_score', 'N/A')}")
-    print(f"📁 Epoch checkpoints available in: {results['epoch_checkpoints']['folder']}")              
+
+    # No quick test overrides
+    params_override = {}
+
+    print(f"📝 Loading config from: {config_file}")
+
+    try:
+        results = train(config_file, params_override)
+        print(f"\n🎉 Training completed! Best score: {results.get('best_val_score', 'N/A')}")
+        print(f"📁 Epoch checkpoints available in: {results['epoch_checkpoints']['folder']}")
+    except FileNotFoundError as e:
+        print(f"❌ {e}")
+        print("Please ensure preprocessed data exists before training.")
+        exit(1)
+    except Exception as e:
+        print(f"❌ Training failed: {e}")
+        exit(1)
