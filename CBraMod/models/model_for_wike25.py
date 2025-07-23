@@ -30,10 +30,7 @@ class Model(nn.Module):
         #         time.sleep(0.2)
         try:
             torch.load(param.foundation_dir, map_location="cpu")
-            time.sleep(0.2)
         except Exception as e:
-            time.sleep(0.1)
-
             self.backbone.load_state_dict(torch.load(param.foundation_dir, map_location=map_location))
         # time.sleep(0.2) 
         self.backbone.proj_out = nn.Identity()
