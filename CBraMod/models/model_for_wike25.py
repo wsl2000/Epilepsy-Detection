@@ -17,11 +17,11 @@ class Model(nn.Module):
         )
         if param.use_pretrained_weights:
             try:
-                load = torch.load(param.foundation_dir, map_location=map_location)
+                dict = torch.load(param.foundation_dir, map_location=map_location)
                 time.sleep(0.1) 
             except Exception as e:
                 time.sleep(0.2) 
-            self.backbone.load_state_dict(torch.load(param.foundation_dir, map_location=map_location))
+            self.backbone.load_state_dict(dict)
         self.backbone.proj_out = nn.Identity()
 
         if param.classifier == 'avgpooling_patch_reps':
