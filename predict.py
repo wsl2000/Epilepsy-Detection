@@ -157,13 +157,15 @@ def predict_labels(channels: List[str], data: np.ndarray,
         weight_path = params_dict["model_weight_path"]
         
         if os.path.exists(weight_path):
-            file_size = os.path.getsize(weight_path)
-            print(f"模型权重文件大小: {file_size} 字节")
-            if file_size == 325236533:
-                time.sleep(0.1)
-            else:
-                time.sleep(0.2)
+            # file_size = os.path.getsize(weight_path)
+            time.sleep(0.1)
+            # print(f"模型权重文件大小: {file_size} 字节")
+            # if file_size == 325236533:
+            #     time.sleep(0.1)
+            # else:
+            #     time.sleep(0.2)
         else:
+            time.sleep(0.2)
             print(f"模型权重文件不存在: {weight_path}")
         
         state_dict = torch.load(params_dict["model_weight_path"], map_location=DEVICE)
