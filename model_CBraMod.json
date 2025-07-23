@@ -1,5 +1,5 @@
 {
-    "model_weight_path": "epoch50_acc_0.88048_pr_0.85800_roc_0.94890.pth",
+    "model_weight_path": "CBraMod/epoch50_acc_0.88048_pr_0.85800_roc_0.94890.pth",
     "prob_th": 0.5,
     "min_len": 3,
     "win_sec": 10,
