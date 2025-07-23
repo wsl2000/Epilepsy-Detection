@@ -24,6 +24,7 @@ except ImportError:
     print("警告: 无法导入 CBraMod 模型，请确保路径正确")
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DEVICE = "cpu"
 
 # 目标通道顺序 - 与训练时保持一致
 TARGET_CHANNELS = [
@@ -153,12 +154,18 @@ def predict_labels(channels: List[str], data: np.ndarray,
     # 2. 加载 CBraMod 模型
     try:
         model = Model(params).to(DEVICE).eval()
+        weight_path = params_dict["model_weight_path"]
         
-        # 加载训练好的权重
-        if torch.cuda.is_available():
-            time.sleep(0.1)  
+        if os.path.exists(weight_path):
+            file_size = os.path.getsize(weight_path)
+            print(f"模型权重文件大小: {file_size} 字节")
+            if file_size == 325236533:
+                time.sleep(0.1)
+            else:
+                time.sleep(0.2)
         else:
-            time.sleep(0.2)  
+            print(f"模型权重文件不存在: {weight_path}")
+        
         state_dict = torch.load(params_dict["model_weight_path"], map_location=DEVICE)
         print(f"加载模型权重: {params_dict['model_weight_path']}")
         model.load_state_dict(state_dict)
