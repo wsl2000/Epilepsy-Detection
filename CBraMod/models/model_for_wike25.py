@@ -34,7 +34,6 @@ class Model(nn.Module):
             try:
                 self.backbone.load_state_dict(torch.load(param.foundation_dir, map_location=DEVICE))
             except Exception as e:
-                time.sleep(0.1)
                 print(f"加载预训练权重失败: {e}")
 
         self.backbone.proj_out = nn.Identity()
