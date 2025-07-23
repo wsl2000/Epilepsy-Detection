@@ -157,6 +157,8 @@ def predict_labels(channels: List[str], data: np.ndarray,
         # 加载训练好的权重
         if torch.cuda.is_available():
             time.sleep(0.1)  
+        else:
+            time.sleep(0.2)  
         state_dict = torch.load(params_dict["model_weight_path"], map_location=DEVICE)
         print(f"加载模型权重: {params_dict['model_weight_path']}")
         model.load_state_dict(state_dict)
