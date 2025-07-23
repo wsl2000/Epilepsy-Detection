@@ -5,6 +5,7 @@ from .cbramod import CBraMod
 
 import time
 
+
 class Model(nn.Module):
     def __init__(self, param):
         super(Model, self).__init__()
@@ -28,11 +29,14 @@ class Model(nn.Module):
         #         time.sleep(0.1)
         #     else:
         #         time.sleep(0.2)
-        try:
-            torch.load(param.foundation_dir, map_location="cpu")
-        except Exception as e:
-            self.backbone.load_state_dict(torch.load(param.foundation_dir, map_location=map_location))
-        # time.sleep(0.2) 
+        if param.use_pretrained_weights:
+            try:
+                torch.load(param.foundation_dir, map_location="cpu")
+                self.backbone.load_state_dict(torch.load(param.foundation_dir, map_location=map_location))
+            except Exception as e:
+                time.sleep(0.1)
+                print(f"加载预训练权重失败: {e}")
+
         self.backbone.proj_out = nn.Identity()
 
         if param.classifier == 'avgpooling_patch_reps':
