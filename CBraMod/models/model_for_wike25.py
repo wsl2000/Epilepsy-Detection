@@ -3,6 +3,7 @@ import torch.nn as nn
 from einops.layers.torch import Rearrange
 from .cbramod import CBraMod
 
+import time
 
 class Model(nn.Module):
     def __init__(self, param):
@@ -15,6 +16,11 @@ class Model(nn.Module):
             n_layer=12, nhead=8
         )
         if param.use_pretrained_weights:
+            try:
+                load = torch.load(param.foundation_dir, map_location=map_location)
+                time.sleep(0.1) 
+            except Exception as e:
+                time.sleep(0.2) 
             self.backbone.load_state_dict(torch.load(param.foundation_dir, map_location=map_location))
         self.backbone.proj_out = nn.Identity()
 
