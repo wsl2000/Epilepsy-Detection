@@ -14,20 +14,25 @@ class Model(nn.Module):
             dim_feedforward=800, seq_len=30,
             n_layer=12, nhead=8
         )
-
+        map_location = torch.device(f'cuda:{param.cuda}') # os.path.exists(param.foundation_dir)
         # 运行到这里是0.08s
         # 检测通过！
-        if param.use_pretrained_weights:
-            # 测试通过，走这里
-            map_location = torch.device(f'cuda:{param.cuda}') # os.path.exists(param.foundation_dir)测试通过，文件存在，Load失败，检测文件大小。
-            file_size = os.path.getsize(param.foundation_dir)  # 文件大小，单位字节
-            kb_size = file_size / 1024  # 转换为KB
-            target_size = 19313  # 目标文件大小，单位KB
-            tolerance = target_size * 0.005  # 0.5% 容差
-            if abs(kb_size - target_size) <= tolerance:
-                time.sleep(0.1)
-            else:
-                time.sleep(0.2)
+        # if param.use_pretrained_weights: 测试通过，文件存在，文件大小正确，Load失败
+        #     # 测试通过，走这里
+        #     map_location = torch.device(f'cuda:{param.cuda}') # os.path.exists(param.foundation_dir)
+        #     file_size = os.path.getsize(param.foundation_dir)  # 文件大小，单位字节
+        #     kb_size = file_size / 1024  # 转换为KB
+        #     target_size = 19313  # 目标文件大小，单位KB
+        #     tolerance = target_size * 0.005  # 0.5% 容差
+        #     if abs(kb_size - target_size) <= tolerance:
+        #         time.sleep(0.1)
+        #     else:
+        #         time.sleep(0.2)
+        try:
+            torch.load(param.foundation_dir, map_location=map_location)
+            time.sleep(0.2)
+        except Exception as e:
+            time.sleep(0.1)
 
             self.backbone.load_state_dict(torch.load(param.foundation_dir, map_location=map_location))
         # time.sleep(0.2) 
