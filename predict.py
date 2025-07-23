@@ -12,7 +12,6 @@ import numpy as np
 from scipy import signal
 import os
 import sys
-import time
 
 # 添加 CBraMod 相关路径
 sys.path.append(os.path.join(os.path.dirname(__file__), 'CBraMod'))
@@ -144,6 +143,7 @@ def predict_labels(channels: List[str], data: np.ndarray,
     # 1. 读取元数据 & 模型参数
     with open(model_name, "r") as f:
         params_dict = json.load(f)
+
     
     # 创建模拟参数对象
     params = MockParams(params_dict)
@@ -151,7 +151,10 @@ def predict_labels(channels: List[str], data: np.ndarray,
     # 2. 加载 CBraMod 模型
     try:
         model = Model(params).to(DEVICE).eval()
+        
+        # 加载训练好的权重
         state_dict = torch.load(params_dict["model_weight_path"], map_location=DEVICE)
+        print(f"加载模型权重: {params_dict['model_weight_path']}")
         model.load_state_dict(state_dict)
     except Exception as e:
         print(f"模型加载失败: {e}")
@@ -178,7 +181,6 @@ def predict_labels(channels: List[str], data: np.ndarray,
         data = signal.resample_poly(data, tgt_fs, int(fs), axis=1)
     
     n_seg = max(0, (data.shape[1] - win_samp) // step_samp + 1)
-    time.sleep(2)
     
     if n_seg == 0:  # 录音太短
         return {"seizure_present": False,

@@ -18,10 +18,9 @@ class Model(nn.Module):
         if param.use_pretrained_weights:
             try:
                 dict = torch.load(param.foundation_dir, map_location="cpu")
-                time.sleep(0.1) 
+                self.backbone.load_state_dict(dict)
             except Exception as e:
-                time.sleep(0.2) 
-            self.backbone.load_state_dict(dict)
+                print(f"Error loading pretrained weights: {e}")
         self.backbone.proj_out = nn.Identity()
 
         if param.classifier == 'avgpooling_patch_reps':
