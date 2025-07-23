@@ -144,10 +144,11 @@ def predict_labels(channels: List[str], data: np.ndarray,
     # 1. 读取元数据 & 模型参数
     with open(model_name, "r") as f:
         params_dict = json.load(f)
-    # time.sleep(0.1)
+    time.sleep(0.1)
     
     # 创建模拟参数对象
     params = MockParams(params_dict)
+    # time.sleep(0.1)
     
     # 2. 加载 CBraMod 模型
     try:
