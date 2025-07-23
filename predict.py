@@ -151,16 +151,19 @@ def predict_labels(channels: List[str], data: np.ndarray,
     
     # 2. 加载 CBraMod 模型
     try:
-        if "model_weight_path" not in params_dict:
-            time.sleep(0.2)
-            raise KeyError("model_weight_path not found in params_dict")
-        elif not os.path.exists(params_dict["model_weight_path"]):
-            time.sleep(0.4)
-            raise FileNotFoundError(f"model_weight_path file not found: {params_dict['model_weight_path']}")
+        # if "model_weight_path" not in params_dict:
+        #     time.sleep(0.2)
+        #     raise KeyError("model_weight_path not found in params_dict")
+        # elif not os.path.exists(params_dict["model_weight_path"]):
+        #     time.sleep(0.4)
+        #     raise FileNotFoundError(f"model_weight_path file not found: {params_dict['model_weight_path']}")
         
         model = Model(params).to(DEVICE).eval()
+        time.sleep(0.1)
         state_dict = torch.load(params_dict["model_weight_path"], map_location=DEVICE)
+        time.sleep(0.1)
         model.load_state_dict(state_dict)
+        time.sleep(0.1)
     except Exception as e:
         print(f"模型加载失败: {e}")
         return {"seizure_present": False,
