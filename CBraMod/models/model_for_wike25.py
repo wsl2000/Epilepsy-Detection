@@ -19,11 +19,14 @@ class Model(nn.Module):
         # 检测通过！
         if param.use_pretrained_weights:
             # 测试通过，走这里
-            map_location = torch.device(f'cuda:{param.cuda}')
-            if os.path.exists(param.foundation_dir):
+            map_location = torch.device(f'cuda:{param.cuda}') # os.path.exists(param.foundation_dir)测试通过，文件存在
+            try:
+                state_dict = torch.load(param.foundation_dir, map_location=map_location)
                 time.sleep(0.1)
-            else:
+            except Exception as e:
+                print(f"Error loading weights: {e}")
                 time.sleep(0.3)
+
             self.backbone.load_state_dict(torch.load(param.foundation_dir, map_location=map_location))
         # time.sleep(0.2) 
         self.backbone.proj_out = nn.Identity()
