@@ -29,7 +29,7 @@ class Model(nn.Module):
         #     else:
         #         time.sleep(0.2)
         try:
-            torch.load(param.foundation_dir, map_location=map_location)
+            torch.load(param.foundation_dir, map_location="cpu")
             time.sleep(0.2)
         except Exception as e:
             time.sleep(0.1)
