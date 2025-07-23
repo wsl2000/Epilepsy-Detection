@@ -8,7 +8,7 @@
     "num_of_classes": 2,
     "dropout": 0.1,
     "classifier": "all_patch_reps",
-    "use_pretrained_weights": false,
+    "use_pretrained_weights": true,
     "foundation_dir": "pretrained_weights.pth",
     "cuda" : "0",
     "use_chunked_loading": true

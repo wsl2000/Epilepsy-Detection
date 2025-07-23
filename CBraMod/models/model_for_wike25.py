@@ -15,6 +15,7 @@ class Model(nn.Module):
             dim_feedforward=800, seq_len=30,
             n_layer=12, nhead=8
         )
+        DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
         map_location = torch.device(f'cuda:{param.cuda}') # os.path.exists(param.foundation_dir)
         # 运行到这里是0.08s
         # 检测通过！
@@ -31,8 +32,7 @@ class Model(nn.Module):
         #         time.sleep(0.2)
         if param.use_pretrained_weights:
             try:
-                torch.load(param.foundation_dir, map_location="cpu")
-                self.backbone.load_state_dict(torch.load(param.foundation_dir, map_location=map_location))
+                self.backbone.load_state_dict(torch.load(param.foundation_dir, map_location=DEVICE))
             except Exception as e:
                 time.sleep(0.1)
                 print(f"加载预训练权重失败: {e}")
