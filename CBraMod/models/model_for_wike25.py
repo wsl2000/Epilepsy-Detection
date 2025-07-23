@@ -17,10 +17,8 @@ class Model(nn.Module):
         # 运行到这里是20s
         # 检测通过！
         if param.use_pretrained_weights:
-            time.sleep(0.1)
             map_location = torch.device(f'cuda:{param.cuda}')
             self.backbone.load_state_dict(torch.load(param.foundation_dir, map_location=map_location))
-        # time.sleep(0.2) 
         self.backbone.proj_out = nn.Identity()
 
         if param.classifier == 'avgpooling_patch_reps':
