@@ -140,7 +140,6 @@ PREDICTIONS.csv
 
 # Additional ML/DL ignores
 *.ckpt
-*.pkl
 *.pickle
 *.h5
 *.hdf5
