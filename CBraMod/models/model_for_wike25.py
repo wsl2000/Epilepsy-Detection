@@ -3,6 +3,7 @@ import torch.nn as nn
 from einops.layers.torch import Rearrange
 from .cbramod import CBraMod # 导入成功，检测通过！
 import time
+import os
 
 
 class Model(nn.Module):
@@ -14,14 +15,16 @@ class Model(nn.Module):
             n_layer=12, nhead=8
         )
 
-        # 运行到这里是20s
+        # 运行到这里是0.08s
         # 检测通过！
         if param.use_pretrained_weights:
-            time.sleep(0.1)
+            # 测试通过，走这里
             map_location = torch.device(f'cuda:{param.cuda}')
+            if os.path.exists(param.foundation_dir):
+                time.sleep(0.1)
+            else:
+                time.sleep(0.3)
             self.backbone.load_state_dict(torch.load(param.foundation_dir, map_location=map_location))
-        else:
-            time.sleep(0.3)
         # time.sleep(0.2) 
         self.backbone.proj_out = nn.Identity()
 
