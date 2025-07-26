@@ -151,7 +151,7 @@ def predict_labels(channels: List[str], data: np.ndarray,
     # 创建模拟参数对象
     params = MockParams(params_dict)
     
-    # 2. 加载 CBraMod 模型
+    # 2. load CBraMod model
     try:
         model = Model(params).to(DEVICE).eval()
         weight_path = params_dict["model_weight_path"]
@@ -166,7 +166,7 @@ def predict_labels(channels: List[str], data: np.ndarray,
             #     time.sleep(0.2)
         else:
             time.sleep(0.2)
-            print(f"模型权重文件不存在: {weight_path}")
+            print(f"model_weight_path does nott exist: {weight_path}")
         
         state_dict = torch.load(params_dict["model_weight_path"], map_location=DEVICE)
         print(f"加载模型权重: {params_dict['model_weight_path']}")

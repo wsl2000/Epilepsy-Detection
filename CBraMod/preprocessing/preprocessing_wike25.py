@@ -7,6 +7,7 @@ import scipy.io as sio
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import matplotlib.pyplot as plt
+import scipy.signal
 
 # 目标通道顺序
 TARGET_CHANNELS = [
@@ -17,8 +18,8 @@ TARGET_CHANNELS = [
     'Fz', 'Cz', 'Pz'
 ]
 
-input_folder = r"D:\datasets\eeg\dataset_dir_original\shared_data\training_single"
-output_folder = r"D:\datasets\eeg\dataset_processed\training_mini"
+input_folder = r"D:\datasets\eeg\dataset_dir_original\shared_data\training"
+output_folder = r"D:\datasets\eeg\dataset_processed\training_one_second2"
 
 for sub in ["train", "val", "test"]:
     os.makedirs(os.path.join(output_folder, sub), exist_ok=True)
@@ -33,46 +34,24 @@ def load_all_references(folder: str):
             refs.append((rec_id, label))
     return refs
 
-def normalize_per_channel(segment):
-    mean = segment.mean(axis=1, keepdims=True)
-    std = segment.std(axis=1, keepdims=True)
-    std[std==0] = 1.0
-    return (segment - mean) / std
+# def normalize_per_channel(segment):
+#     mean = segment.mean(axis=1, keepdims=True)
+#     std = segment.std(axis=1, keepdims=True)
+#     std[std==0] = 1.0
+#     return (segment - mean) / std
 
-def scale_per_channel(segment_norm, amp=100.0):
-    # 每通道最大绝对值缩放到amp
-    seg = segment_norm.copy()
-    for i in range(seg.shape[0]):
-        max_v = np.max(np.abs(seg[i]))
-        if max_v > 1e-6:
-            seg[i] = seg[i] * (amp / max_v)
-    return seg
-
-def visualize_segment_ax(segment_norm, save_path, y):
-    """
-    可视化一个归一化后的片段，并保存图片
-    """
-    fig, ax = plt.subplots(figsize=(12, 10))
-    offset_step = 200
-    for ch in range(segment_norm.shape[0]):
-        ax.plot(segment_norm[ch] + ch * offset_step, label=TARGET_CHANNELS[ch])
-    ax.set_title(f'{os.path.basename(save_path)} (label={y})')
-    ax.set_xlabel('采样点')
-    ax.set_ylabel('信号+通道偏移')
-    ax.legend(loc='upper right', bbox_to_anchor=(1.18, 1.0))
-    plt.tight_layout()
-    img_path = save_path.replace('.pkl', '.png')
-    plt.savefig(img_path)
-    plt.close(fig)
-
-# 可视化开关（True=生成图片，False=只保存pkl不保存图片）
-VISUALIZE = False
+# def scale_per_channel(segment_norm, amp=100.0):
+#     # 每通道最大绝对值缩放到amp
+#     seg = segment_norm.copy()
+#     for i in range(seg.shape[0]):
+#         max_v = np.max(np.abs(seg[i]))
+#         if max_v > 1e-6:
+#             seg[i] = seg[i] * (amp / max_v)
+#     return seg
 
 def process_one_record(rec_id, label, ch_names, data, fs, subfolder):
     out_dir = os.path.join(output_folder, subfolder)
     seizure_present, onset, offset = label
-    onset_sample = int(onset * fs)
-    offset_sample = int(offset * fs)
     total_len = data.shape[1]
 
     channel_data = []
@@ -84,12 +63,22 @@ def process_one_record(rec_id, label, ch_names, data, fs, subfolder):
             channel_data.append(np.zeros(total_len, dtype=np.float32))
     channel_data = np.stack(channel_data, axis=0)
 
-    segment_len = int(10 * fs)
-    for i in range(0, total_len, segment_len):
-        segment = channel_data[:, i:i+segment_len]
+    # 重采样到200Hz
+    target_fs = 200
+    target_len = int(total_len * target_fs / fs)
+    channel_data_resampled = scipy.signal.resample(channel_data, target_len, axis=1)
+
+    # onset/offset重新对齐
+    onset_sample = int(onset * target_fs)
+    offset_sample = int(offset * target_fs)
+    segment_len = target_fs  # 1秒
+
+    for i in range(0, channel_data_resampled.shape[1], segment_len):
+        segment = channel_data_resampled[:, i:i+segment_len]
         if segment.shape[1] == segment_len:
-            segment_norm = normalize_per_channel(segment)
-            segment_scaled = scale_per_channel(segment_norm, amp=100.0)
+            # segment_norm = normalize_per_channel(segment)
+            # segment_scaled = scale_per_channel(segment_norm, amp=100.0)
+            segment_scaled = segment
             if seizure_present and not (i+segment_len < onset_sample or i > offset_sample):
                 y = 1
             else:
@@ -97,22 +86,26 @@ def process_one_record(rec_id, label, ch_names, data, fs, subfolder):
             save_name = f"{rec_id}-{i}.pkl"
             save_path = os.path.join(out_dir, save_name)
             with open(save_path, 'wb') as f:
-                pickle.dump({"X": segment_scaled, "y": y}, f)
-            if VISUALIZE:
-                visualize_segment_ax(segment_scaled, save_path, y)
-    # 正样本增强（5秒滑窗）
+                pickle.dump({"X": segment_scaled, "y": y, "fs": target_fs}, f)
+            # 检查文件是否存在
+            if not os.path.exists(save_path):
+                raise FileNotFoundError(f"保存失败，文件不存在: {save_path}")
+    # 正样本增强（0.5秒滑窗）
     if seizure_present:
-        for idx, start in enumerate(range(max(0, onset_sample-int(fs)), min(offset_sample+int(fs), total_len-segment_len+1), int(5*fs))):
-            segment = channel_data[:, start: start+segment_len]
+        for idx, start in enumerate(range(max(0, onset_sample-target_fs), min(offset_sample+target_fs, channel_data_resampled.shape[1]-segment_len+1), int(0.5*target_fs))):
+            segment = channel_data_resampled[:, start: start+segment_len]
             if segment.shape[1] == segment_len:
-                segment_norm = normalize_per_channel(segment)
-                segment_scaled = scale_per_channel(segment_norm, amp=100.0)
+                # segment_norm = normalize_per_channel(segment)
+                # segment_scaled = scale_per_channel(segment_norm, amp=100.0)
+                segment_scaled = segment
                 save_name = f"{rec_id}-s-add-{idx}-{start}.pkl"
                 save_path = os.path.join(out_dir, save_name)
                 with open(save_path, 'wb') as f:
-                    pickle.dump({"X": segment_scaled, "y": 1}, f)
-                if VISUALIZE:
-                    visualize_segment_ax(segment_scaled, save_path, 1)
+                    pickle.dump({"X": segment_scaled, "y": 1, "fs": target_fs}, f)
+                # 检查文件是否存在
+                if not os.path.exists(save_path):
+                    raise FileNotFoundError(f"保存失败，文件不存在: {save_path}")
+
 
 def process_record_wrapper(args):
     rec_id, label, subfolder = args
@@ -158,7 +151,7 @@ if __name__ == "__main__":
     for rec_id, label in test_refs:
         all_args.append((rec_id, label, "test"))
 
-    with ThreadPoolExecutor(max_workers=1) as executor:
+    with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
         tasks = [executor.submit(process_record_wrapper, args) for args in all_args]
         for _ in tqdm(as_completed(tasks), total=len(tasks)):
             pass

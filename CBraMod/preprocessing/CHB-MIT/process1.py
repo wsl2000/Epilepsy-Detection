@@ -231,8 +231,8 @@ def start_process(pacient, num, start, end, sum_ind):
 
 
 # PARAMETERS
-signals_path = r"/data/datasets/chb-mit-scalp-eeg-database-1.0.0"  # Path to the data main directory
-clean_path = r"/data/datasets/BigDownstream/chb-mit/processed"  # Path where to store clean data
+signals_path = r"D:\datasets\eeg\dataset_dir_original\chb-mit-scalp-eeg-database-1.0.0"  # Path to the data main directory
+clean_path = r"D:\datasets\eeg\dataset_processed\CHB-MIT"  # Path where to store clean data
 
 if not os.path.exists(clean_path):
     os.makedirs(clean_path)
@@ -276,8 +276,8 @@ parameters = [
 #     ("12", "")
 # ]
 
+if __name__ == "__main__":
+    with mp.Pool(1) as pool:
+    # with mp.Pool(mp.cpu_count()) as pool:
+        res = pool.starmap(start_process, parameters)
 
-
-
-with mp.Pool(mp.cpu_count()) as pool:
-    res = pool.starmap(start_process, parameters)

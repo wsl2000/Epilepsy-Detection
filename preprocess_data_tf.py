@@ -233,8 +233,10 @@ def preprocess_dataset(
 if __name__ == "__main__":
     # Configure preprocessing
     config = {
-        "input_folder": r"D:\datasets\eeg\dataset_dir_original\shared_data\training",
-        "output_folder": r"D:\datasets\eeg\dataset_processed\wike25_tf",
+        # "input_folder": r"D:\datasets\eeg\dataset_dir_original\shared_data\training",
+        # "output_folder": r"D:\datasets\eeg\dataset_processed\wike25_tf",
+        "input_folder": r"/work/projects/project02629/datasets/dataset_dir_original/shared_data/training",
+        "output_folder": r"/work/projects/project02629/datasets/processed/wike25_tf",
         "freq_bands": True,
         "num_workers": 15,
         "start_idx": 0  # Change this to resume from a specific index

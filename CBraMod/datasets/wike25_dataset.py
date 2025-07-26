@@ -28,7 +28,7 @@ class CustomDataset(Dataset):
         label = data_dict['y']
         data = signal.resample(data, 2000, axis=1)
         data = data.reshape(19, 10, 200)
-        return data/100, label
+        return data, label # 这里不除以100，因为wki25数据已经是标准化的了
 
     def collate(self, batch):
         x_data = np.array([x[0] for x in batch])
