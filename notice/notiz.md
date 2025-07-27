@@ -34,6 +34,9 @@ wki25统计数据如下：
 [wike25_dataset_1s.py] __getitem__函数中将reshape从 [_, 19, 10, 200] 改为 [_, 19, 1, 200] 
 [model_for_wike25_1s.py] CBraMod中seq_len从30改为3，线性层从10*200输入改为1*200，需要核对。
 
+### 1.2.1 finetuning
+现在需要增加分配的内存，因为finetune_trainer_modify在训练之前会将所有文件读取一遍，来获计算不平衡样本增加多少权重。我在本地测试出来是138GB的内存占用。
+
 # 2. 服务器相关
 - conda 7.23安装的，不知道是谁装的
 - cquota显示Projects文件满了，现在使用SCRATCH位置用于存储数据，8周后会被自动清除。
