@@ -13,8 +13,6 @@ from scipy import signal
 import os
 import sys
 
-import time
-
 # 添加 CBraMod 相关路径
 sys.path.append(os.path.join(os.path.dirname(__file__), 'CBraMod'))
 
@@ -24,7 +22,6 @@ except ImportError:
     print("警告: 无法导入 CBraMod 模型，请确保路径正确")
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-DEVICE = "cpu"
 
 # 目标通道顺序 - 与训练时保持一致
 TARGET_CHANNELS = [
@@ -57,7 +54,7 @@ def scale_per_channel(segment_norm, amp=100.0):
             seg[i] = seg[i] * (amp / max_v)
     return seg
 
-def create_patches(data, patch_size=250, overlap=0):
+def create_patches(data, patch_size=200, overlap=0):
     """
     将EEG数据分割成patches
     data: [channels, time_points]
@@ -81,7 +78,7 @@ def create_patches(data, patch_size=250, overlap=0):
     
     return patches
 
-def create_patches(data, patch_size=250, target_patches=10):
+def create_patches(data, patch_size=200, target_patches=10):
     """
     将EEG数据分割成固定数量的patches
     data: [channels, time_points] 
@@ -105,7 +102,7 @@ def create_patches(data, patch_size=250, target_patches=10):
     
     return patches
 
-def preprocess_eeg_data(channels, data, fs, target_fs=250):
+def preprocess_eeg_data(channels, data, fs, target_fs=200):
     """
     预处理 EEG 数据以匹配 CBraMod 的输入格式
     返回格式: [channels, num_patches, patch_size] - 与训练时一致
@@ -140,36 +137,27 @@ def predict_labels(channels: List[str], data: np.ndarray,
                    fs: float, reference_system: str,
                    model_name: str = "model.json") -> Dict[str, Any]:
     """
-    CBraMod 预测接口函数
+    CBraMod 预测接口函数 - 修改版
+    首先判断最大prob是否大于0.06，然后使用0.0025阈值确定onset/offset
     """
+    
+    if not hasattr(predict_labels, "count"):
+        predict_labels.count = 0
+    predict_labels.count += 1
     
     # 1. 读取元数据 & 模型参数
     with open(model_name, "r") as f:
         params_dict = json.load(f)
 
-    
     # 创建模拟参数对象
     params = MockParams(params_dict)
     
-    # 2. load CBraMod model
+    # 2. 加载 CBraMod 模型
     try:
         model = Model(params).to(DEVICE).eval()
-        weight_path = params_dict["model_weight_path"]
         
-        if os.path.exists(weight_path):
-            # file_size = os.path.getsize(weight_path)
-            time.sleep(0.1)
-            # print(f"模型权重文件大小: {file_size} 字节")
-            # if file_size == 325236533:
-            #     time.sleep(0.1)
-            # else:
-            #     time.sleep(0.2)
-        else:
-            time.sleep(0.2)
-            print(f"model_weight_path does nott exist: {weight_path}")
-        
+        # 加载训练好的权重
         state_dict = torch.load(params_dict["model_weight_path"], map_location=DEVICE)
-        print(f"加载模型权重: {params_dict['model_weight_path']}")
         model.load_state_dict(state_dict)
     except Exception as e:
         print(f"模型加载失败: {e}")
@@ -182,22 +170,27 @@ def predict_labels(channels: List[str], data: np.ndarray,
     
     # 获取预测参数
     prob_th = params_dict.get("prob_th", 0.5)
-    min_len = params_dict.get("min_len", 3)
-    win_sec = params_dict.get("win_sec", 10)
-    step_sec = params_dict.get("step_sec", 5)
-    tgt_fs = params_dict.get("fs", 250)
+    win_sec = params_dict.get("win_sec", 10)  # 10秒窗口
+    tgt_fs = params_dict.get("fs", 200)  # 目标采样率，通常是200Hz
     
-    # 3. 预处理数据
-    win_samp = int(win_sec * tgt_fs)  # 10秒 = 2500个采样点
-    step_samp = int(step_sec * tgt_fs)  # 5秒 = 1250个采样点
-    
-    # 重采样
+    # 保存原始采样率 - 用于时间转换
+    original_fs = fs
+
+    # print(f"第{predict_labels.count}轮检查，数据长度为{data.shape[1]}个采样点，原始采样率为{fs}Hz")
+    # 3. 预处理数据 - 重采样
     if fs != tgt_fs:
         data = signal.resample_poly(data, tgt_fs, int(fs), axis=1)
     
-    n_seg = max(0, (data.shape[1] - win_samp) // step_samp + 1)
+    total_samples = data.shape[1]
+    win_samp = int(win_sec * tgt_fs)  # 10秒 = 2000个采样点
     
-    if n_seg == 0:  # 录音太短
+    # ====== 检测阶段 ======
+    print(f"正在进行癫痫检测..., win_size={win_samp}")
+    
+    # 不重叠的10秒窗口数量
+    n_seg = total_samples // win_samp
+    
+    if n_seg == 0:  # 数据太短
         return {"seizure_present": False,
                 "seizure_confidence": 0.,
                 "onset": -1,
@@ -205,19 +198,23 @@ def predict_labels(channels: List[str], data: np.ndarray,
                 "offset": -1,
                 "offset_confidence": 0.}
     
-    # 4. 分段预测
-    probs = []
+    # 计算所有窗口的概率
+    window_probs = []
+    window_times = []
+    
     with torch.no_grad():
         for i in range(n_seg):
-            start_idx = i * step_samp
+            start_idx = i * win_samp
+            start_time = i * win_sec
+            window_times.append(start_time)
+            
+            # 提取10秒片段
             segment_data = data[:, start_idx:start_idx + win_samp]
             
-            # 预处理当前片段 - 转换为patch格式
+            # 预处理当前片段
             processed_patches = preprocess_eeg_data(channels, segment_data, tgt_fs, tgt_fs)
             
-            # 转换为模型期望的输入格式 [batch, channels, seq_len, patch_size]
-            # processed_patches shape: [19, 10, 200]
-            # 需要转换为: [1, 19, 10, 200]
+            # 转换为模型输入格式
             segment_tensor = torch.tensor(processed_patches, dtype=torch.float32).unsqueeze(0).to(DEVICE)
             
             # 模型预测
@@ -229,53 +226,61 @@ def predict_labels(channels: List[str], data: np.ndarray,
             else:
                 logits = output
                 
-            prob = torch.sigmoid(logits).cpu().item()  # BCEWithLogitsLoss对应sigmoid
-            probs.append(prob)
+            prob = torch.sigmoid(logits).cpu().item()
+            window_probs.append(prob)
+            # print(f"  窗口 {i+1}/{n_seg}: 概率={prob:.4f}, 时间={start_time:.1f}s")
+
+    window_probs = np.array(window_probs)
+    window_times = np.array(window_times)
     
-    probs = np.array(probs)
+    # 获取最大概率值
+    max_prob = window_probs.max()
     
-    # 5-7. 后续处理保持不变
-    # 平滑 + 阈值检测
-    if len(probs) >= 3:
-        smooth = np.convolve(probs, np.ones(3)/3, mode="same")
-    else:
-        smooth = probs
-    
-    mask = smooth > prob_th
-    
-    # 连通域分析
-    runs, current = [], []
-    for i, m in enumerate(mask):
-        if m:
-            current.append(i)
-        elif current:
-            if len(current) >= min_len:
-                runs.append(current)
-            current = []
-    if current and len(current) >= min_len:
-        runs.append(current)
-    
-    if not runs:  # 无癫痫检测
+    # 判断是否有癫痫发作 - 使用0.06阈值
+    if max_prob <= 0.06:
+        print(f"第{predict_labels.count}轮检查：最大概率 {max_prob:.4f} <= 0.06，判定为无癫痫")
         return {"seizure_present": False,
-                "seizure_confidence": float(smooth.max()) if len(smooth) > 0 else 0.0,
+                "seizure_confidence": float(max_prob),
                 "onset": -1,
                 "onset_confidence": 0.,
                 "offset": -1,
                 "offset_confidence": 0.}
     
-    # 取最长的癫痫片段
-    run = max(runs, key=len)
-    onset_sec = run[0] * step_sec
-    offset_sec = run[-1] * step_sec + win_sec
+    # 找出概率大于0.0025的窗口
+    low_th_candidates = np.where(window_probs > 0.0025)[0]
     
-    confidence = float(smooth[run].max())
+    if len(low_th_candidates) == 0:  # 理论上不应该发生，因为max_prob > 0.06
+        print(f"第{predict_labels.count}轮检查：异常情况，无窗口大于0.0025阈值")
+        return {"seizure_present": False,
+                "seizure_confidence": float(max_prob),
+                "onset": -1,
+                "onset_confidence": 0.,
+                "offset": -1,
+                "offset_confidence": 0.}
+    
+    # 取第一个大于0.0025的窗口的结束点作为onset
+    first_window_idx = low_th_candidates[0]
+    onset_sec = window_times[first_window_idx] + win_sec  # 窗口后端
+    
+    # 取最后一个大于0.0025的窗口的开始点作为offset
+    last_window_idx = low_th_candidates[-1]
+    offset_sec = window_times[last_window_idx]  # 窗口前端
+    
+    # 置信度计算
+    onset_confidence = float(window_probs[first_window_idx])
+    offset_confidence = float(window_probs[last_window_idx])
+    
+    print(f"第{predict_labels.count}轮检查：检测完成")
+    print(f"  最大概率: {max_prob:.4f} > 0.06，判定为有癫痫")
+    print(f"  找到 {len(low_th_candidates)} 个大于0.0025阈值的窗口")
+    print(f"  主要片段: Onset={onset_sec:.1f}s (窗口{first_window_idx+1}后端), Offset={offset_sec:.1f}s (窗口{last_window_idx+1}前端)")
     
     return {"seizure_present": True,
-            "seizure_confidence": confidence,
+            "seizure_confidence": float(max_prob),
             "onset": onset_sec,
-            "onset_confidence": confidence,
+            "onset_confidence": onset_confidence,
             "offset": offset_sec,
-            "offset_confidence": confidence}
+            "offset_confidence": offset_confidence}
 
 
 if __name__ == "__main__":

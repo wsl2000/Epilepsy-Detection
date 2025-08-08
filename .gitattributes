@@ -7,3 +7,4 @@
 *.bin filter=lfs diff=lfs merge=lfs -text
 *.model filter=lfs diff=lfs merge=lfs -text
 CBraMod/epoch50_acc_0.88048_pr_0.85800_roc_0.94890.pth filter=lfs diff=lfs merge=lfs -text
+CBraMod/epoch8_acc_0.88635_pr_0.83430_roc_0.94870.pth filter=lfs diff=lfs merge=lfs -text
