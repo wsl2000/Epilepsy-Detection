@@ -1,5 +1,5 @@
 {
-    "model_weight_path": "CBraMod/model_weights/epoch8_acc_0.88635_pr_0.83430_roc_0.94870.pth",
+    "model_weight_path": "CBraMod/epoch8_acc_0.88635_pr_0.83430_roc_0.94870.pth",
     "min_len": 3,
     "win_sec": 10,
     "step_sec": 5,
