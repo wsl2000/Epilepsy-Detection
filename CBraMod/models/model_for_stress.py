@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 from einops.layers.torch import Rearrange
-from .cbramod import CBraMod
 
+from .cbramod import CBraMod
 
 class Model(nn.Module):
     def __init__(self, param):
@@ -16,7 +16,6 @@ class Model(nn.Module):
             map_location = torch.device(f'cuda:{param.cuda}')
             self.backbone.load_state_dict(torch.load(param.foundation_dir, map_location=map_location))
         self.backbone.proj_out = nn.Identity()
-
         if param.classifier == 'avgpooling_patch_reps':
             self.classifier = nn.Sequential(
                 Rearrange('b c s d -> b d c s'),
@@ -28,13 +27,13 @@ class Model(nn.Module):
         elif param.classifier == 'all_patch_reps_onelayer':
             self.classifier = nn.Sequential(
                 Rearrange('b c s d -> b (c s d)'),
-                nn.Linear(19*10*200, 1),
+                nn.Linear(20 * 5 * 200, 1),
                 Rearrange('b 1 -> (b 1)'),
             )
         elif param.classifier == 'all_patch_reps_twolayer':
             self.classifier = nn.Sequential(
                 Rearrange('b c s d -> b (c s d)'),
-                nn.Linear(19*10*200, 200),
+                nn.Linear(20 * 5 * 200, 200),
                 nn.ELU(),
                 nn.Dropout(param.dropout),
                 nn.Linear(200, 1),
@@ -43,10 +42,10 @@ class Model(nn.Module):
         elif param.classifier == 'all_patch_reps':
             self.classifier = nn.Sequential(
                 Rearrange('b c s d -> b (c s d)'),
-                nn.Linear(19*10*200, 10*200),
+                nn.Linear(20 * 5 * 200, 5 * 200),
                 nn.ELU(),
                 nn.Dropout(param.dropout),
-                nn.Linear(10*200, 200),
+                nn.Linear(5 * 200, 200),
                 nn.ELU(),
                 nn.Dropout(param.dropout),
                 nn.Linear(200, 1),
@@ -58,3 +57,4 @@ class Model(nn.Module):
         feats = self.backbone(x)
         out = self.classifier(feats)
         return out
+

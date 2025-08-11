@@ -1,4 +1,4 @@
-name: eeg
+name: Epilepsy-Detection
 channels:
   - defaults
   - conda-forge
@@ -222,4 +222,3 @@ dependencies:
       - typing-extensions==4.12.2
       - tzdata==2025.2
       - umap-learn==0.5.9.post2
-prefix: C:\Users\lvxiangyu11\anaconda3\envs\eeg

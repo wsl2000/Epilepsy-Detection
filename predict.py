@@ -236,9 +236,9 @@ def predict_labels(channels: List[str], data: np.ndarray,
     # 获取最大概率值
     max_prob = window_probs.max()
     
-    # 判断是否有癫痫发作 - 使用0.06阈值
-    if max_prob <= 0.06:
-        print(f"第{predict_labels.count}轮检查：最大概率 {max_prob:.4f} <= 0.06，判定为无癫痫")
+    # 判断是否有癫痫发作 - 使用0.99阈值
+    if max_prob < 0.979:
+        print(f"第{predict_labels.count}轮检查：最大概率 {max_prob:.4f} <= 0.979，判定为无癫痫")
         return {"seizure_present": False,
                 "seizure_confidence": float(max_prob),
                 "onset": -1,
@@ -247,7 +247,7 @@ def predict_labels(channels: List[str], data: np.ndarray,
                 "offset_confidence": 0.}
     
     # 找出概率大于0.0025的窗口
-    low_th_candidates = np.where(window_probs > 0.0025)[0]
+    low_th_candidates = np.where(window_probs > 0.7)[0]
     
     if len(low_th_candidates) == 0:  # 理论上不应该发生，因为max_prob > 0.06
         print(f"第{predict_labels.count}轮检查：异常情况，无窗口大于0.0025阈值")
@@ -260,7 +260,7 @@ def predict_labels(channels: List[str], data: np.ndarray,
     
     # 取第一个大于0.0025的窗口的结束点作为onset
     first_window_idx = low_th_candidates[0]
-    onset_sec = window_times[first_window_idx] + win_sec  # 窗口后端
+    onset_sec = window_times[first_window_idx] + win_sec/2  # 窗口后端
     
     # 取最后一个大于0.0025的窗口的开始点作为offset
     last_window_idx = low_th_candidates[-1]
@@ -271,8 +271,8 @@ def predict_labels(channels: List[str], data: np.ndarray,
     offset_confidence = float(window_probs[last_window_idx])
     
     print(f"第{predict_labels.count}轮检查：检测完成")
-    print(f"  最大概率: {max_prob:.4f} > 0.06，判定为有癫痫")
-    print(f"  找到 {len(low_th_candidates)} 个大于0.0025阈值的窗口")
+    print(f"  最大概率: {max_prob:.4f} > 0.99，判定为有癫痫")
+    print(f"  找到 {len(low_th_candidates)} 个大于0.8阈值的窗口")
     print(f"  主要片段: Onset={onset_sec:.1f}s (窗口{first_window_idx+1}后端), Offset={offset_sec:.1f}s (窗口{last_window_idx+1}前端)")
     
     return {"seizure_present": True,

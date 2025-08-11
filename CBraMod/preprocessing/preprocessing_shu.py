@@ -3,9 +3,14 @@ from scipy import signal
 import os
 import lmdb
 import pickle
+import argparse
 
-root_dir = '/data/datasets/BigDownstream/MODMA/files'
-files = [file for file in os.listdir(root_dir)]
+parser = argparse.ArgumentParser()
+parser.add_argument('--original_dir', type=str)
+parser.add_argument('--processed_dir', type=str)
+args = parser.parse_args()
+
+files = [file for file in os.listdir(args.original_dir)]
 files = sorted(files)
 # print(files)
 
@@ -20,10 +25,11 @@ dataset = {
     'val': list(),
     'test': list(),
 }
-db = lmdb.open('/data/datasets/shu_datasets/processed', map_size=110612736)
+db = lmdb.open(args.processed_dir, map_size=3106127360)
 for files_key in files_dict.keys():
     for file in files_dict[files_key]:
-        data = scipy.io.loadmat(os.path.join(root_dir, file))
+        print(os.path.join(args.original_dir, file))
+        data = scipy.io.loadmat(os.path.join(args.original_dir, file))
         eeg = data['data']
         labels = data['labels'][0]
         bz, ch_num, points = eeg.shape

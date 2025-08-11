@@ -4,22 +4,17 @@ import random
 import numpy as np
 import torch
 
-from datasets import faced_dataset, seedv_dataset, physio_dataset, shu_dataset, isruc_dataset, chb_dataset, \
-    speech_dataset, mumtaz_dataset, seedvig_dataset, stress_dataset, tuev_dataset, tuab_dataset, bciciv2a_dataset, \
-    wike25_dataset
-# from finetune_trainer import Trainer
-from finetune_trainer_modify import Trainer
-from models import model_for_faced, model_for_seedv, model_for_physio, model_for_shu, model_for_isruc, model_for_chb, \
-    model_for_speech, model_for_mumtaz, model_for_seedvig, model_for_stress, model_for_tuev, model_for_tuab, \
-    model_for_bciciv2a, model_for_wike25
+from datasets import wike25_dataset
+from finetune_trainer import Trainer
+from models import model_for_wike25
 
 
 def main():
     parser = argparse.ArgumentParser(description='Big model downstream')
     parser.add_argument('--seed', type=int, default=3407, help='random seed (default: 0)')
-    parser.add_argument('--cuda', type=int, default=0, help='cuda number (default: 1)')
+    parser.add_argument('--cuda', type=int, default=1, help='cuda number (default: 1)')
     parser.add_argument('--epochs', type=int, default=50, help='number of epochs (default: 5)')
-    parser.add_argument('--batch_size', type=int, default=512, help='batch size for training (default: 32)')
+    parser.add_argument('--batch_size', type=int, default=64, help='batch size for training (default: 32)')
     parser.add_argument('--lr', type=float, default=1e-4, help='learning rate (default: 1e-3)')
     parser.add_argument('--weight_decay', type=float, default=5e-2, help='weight decay (default: 1e-2)')
     parser.add_argument('--optimizer', type=str, default='AdamW', help='optimizer (AdamW, SGD)')
@@ -34,20 +29,14 @@ def main():
     # avgpooling_patch_reps: use average pooling for patch features;
 
     """############ Downstream dataset settings ############"""
-    # parser.add_argument('--downstream_dataset', type=str, default='SHU-MI',
     parser.add_argument('--downstream_dataset', type=str, default='wike25',
-                                            help='[FACED, SEED-V, PhysioNet-MI, SHU-MI, ISRUC, CHB-MIT, BCIC2020-3, Mumtaz2016, '
+                        help='[FACED, SEED-V, PhysioNet-MI, SHU-MI, ISRUC, CHB-MIT, BCIC2020-3, Mumtaz2016, '
                              'SEED-VIG, MentalArithmetic, TUEV, TUAB, BCIC-IV-2a, wike25]')
     parser.add_argument('--datasets_dir', type=str,
-                        # default=r'D:\datasets\eeg\dataset_processed\CHB-MIT_seg',
-                        # default=r'D:\datasets\eeg\dataset_processed\CHB-MIT_seg_partial',
-                        default=r'D:\datasets\eeg\dataset_processed\training_one_second',
+                        default='/work/projects/project02629/datasets/processed/wike25',
                         help='datasets_dir')
-    parser.add_argument('--num_of_classes', type=int, default=9, help='number of classes')
-    parser.add_argument('--model_dir', type=str, default='./model_weights/SHU-MI_seg', help='model_dir')
-    # parser.add_argument('--model_dir', type=str, default='./model_weights/CHB-MIT', help='model_dir')
-    # parser.add_argument('--model_dir', type=str, default='model_weights/wike25_2', help='model_dir')
-
+    parser.add_argument('--num_of_classes', type=int, default=2, help='number of classes')
+    parser.add_argument('--model_dir', type=str, default='./model_weights/wike25', help='model_dir')
     """############ Downstream dataset settings ############"""
 
     parser.add_argument('--num_workers', type=int, default=16, help='num_workers')
@@ -59,7 +48,7 @@ def main():
     parser.add_argument('--use_pretrained_weights', type=bool,
                         default=True, help='use_pretrained_weights')
     parser.add_argument('--foundation_dir', type=str,
-                        default='pretrained_weights.pth',
+                        default='pretrained_weights/pretrained_weights.pth',
                         help='foundation_dir')
 
     params = parser.parse_args()

@@ -137,22 +137,24 @@ def process_record_wrapper(args):
 
 def main():
     """主函数"""
-    random.seed(42)
-    
     # 加载所有参考标签
     refs = load_all_references(input_folder)
-    random.shuffle(refs)
+
+    # 取前500个作为测试集
+    test_refs = refs[:500]
     
-    # 数据集分割（8:1:1）
-    N = len(refs)
-    n_train = int(N * 0.8)
-    n_val = int(N * 0.1)
+    # 剩余数据按9:1分为训练集和验证集
+    remaining_refs = refs[500:]
+    random.seed(42)  # 保持随机性一致
+    random.shuffle(remaining_refs)
     
-    train_refs = refs[:n_train]
-    val_refs = refs[n_train:n_train+n_val]
-    test_refs = refs[n_train+n_val:]
+    N = len(remaining_refs)
+    n_train = int(N * 0.9)  # 剩余数据的90%作为训练集
     
-    print(f"数据集分割: 训练={len(train_refs)}, 验证={len(val_refs)}, 测试={len(test_refs)}")
+    train_refs = remaining_refs[:n_train]
+    val_refs = remaining_refs[n_train:]
+    
+    print(f"数据集分割: 测试={len(test_refs)}, 训练={len(train_refs)}, 验证={len(val_refs)}")
     
     # 准备所有处理任务
     all_args = []
